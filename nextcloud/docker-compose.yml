@@ -1,0 +1,18 @@
+services:
+  nextcloud-aio-mastercontainer:
+    image: ghcr.io/nextcloud-releases/all-in-one:latest
+    container_name: nextcloud-aio-mastercontainer
+    restart: always
+    ports:
+      - "80:80"
+      - "8080:8080"
+      - "8443:8443"
+    volumes:
+      - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    stdin_open: true
+    tty: true
+    stop_signal: SIGINT
+
+volumes:
+  nextcloud_aio_mastercontainer:
