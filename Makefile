@@ -6,7 +6,7 @@ setup:
 	sudo systemctl disable apache2
 
 start: setup
-	${MAKE} ./home-assistant
-	${MAKE} ./jellyfin
-	${MAKE} ./kavita
-	${MAKE} ./nextcloud
+	${MAKE} -C ./home-assistant
+	${MAKE} -C ./jellyfin
+	${MAKE} -C ./kavita
+	${MAKE} -C ./nextcloud
