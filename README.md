@@ -2,9 +2,9 @@
 
 ### Where to place media
 
-- Music: `/home/${USER}/music`
-- Movies: `/home/${USER}/movies`
-- Books: `/home/${USER}/books`
+- Music: `/mnt/music`
+- Movies: `/mnt/movies`
+- Books: `/mnt/books`
 
 ### Addresses
 
