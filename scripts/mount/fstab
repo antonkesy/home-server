@@ -1,0 +1,3 @@
+//akstorage0/music /mnt/music cifs credentials=/etc/smb-credentials,iocharset=utf8,vers=3.0,uid=1000,gid=1000 0 0
+//akstorage0/movies /mnt/movies cifs credentials=/etc/smb-credentials,iocharset=utf8,vers=3.0,uid=1000,gid=1000 0 0
+//akstorage0/ebooks /mnt/books cifs credentials=/etc/smb-credentials,iocharset=utf8,vers=3.0,uid=1000,gid=1000 0 0
