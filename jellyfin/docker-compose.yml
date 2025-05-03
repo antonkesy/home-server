@@ -8,11 +8,11 @@ services:
       - ./config:/config
       - ./cache:/cache
       - type: bind
-        source: /home/${USER}/music
+        source: /mnt/music
         target: /music
         read_only: true
       - type: bind
-        source: /home/${USER}/movies
+        source: /mnt/movies
         target: /movies
         read_only: true
     restart: 'unless-stopped'

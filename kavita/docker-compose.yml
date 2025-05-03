@@ -4,7 +4,7 @@ services:
         image: jvmilazz0/kavita:latest
         container_name: kavita
         volumes:
-            - /home/${USER}/books:/books
+            - /mnt/books:/books
             - ./config:/kavita/config     # /kavita/config must not be changed
         environment:
             - TZ=Europe/Berlin
