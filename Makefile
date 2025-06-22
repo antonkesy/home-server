@@ -11,9 +11,11 @@ start: setup
 	${MAKE} -C ./jellyfin
 	${MAKE} -C ./kavita
 	${MAKE} -C ./nextcloud
+	${MAKE} -C ./pihole
 
 stop:
 	${MAKE} -C ./home-assistant stop
 	${MAKE} -C ./jellyfin stop
 	${MAKE} -C ./kavita stop
 	${MAKE} -C ./nextcloud stop
+	${MAKE} -C ./pihole stop

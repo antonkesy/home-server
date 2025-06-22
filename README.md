@@ -12,3 +12,4 @@
 - [Kavita](http://localhost:5000/home): `http://localhost:5000/home`
 - [Home-Assistant](http://localhost:8123/): `http://localhost:8123/`
 - [Nextcloud](http://localhost:8080/): `http://localhost:8080/`
+- [pi-hole](http://localhost:8181/): `http://localhost:8181/`
