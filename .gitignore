@@ -1,0 +1,33 @@
+# NixOS build results
+result
+result-*
+
+# Hardware configuration (machine-specific)
+# Uncomment if you don't want to commit your hardware config
+# hardware-configuration.nix
+
+# Docker volumes and configs
+*/config/*
+*/cache/*
+*/etc-pihole/*
+*/etc-dnsmasq.d/*
+
+# Nextcloud volumes
+nextcloud/
+
+# Keep example configs
+!*/config/.gitkeep
+!jellyfin/config/plugins/
+!jellyfin/config/root/
+
+# Environment files
+.env
+*.env
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*~
