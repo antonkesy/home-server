@@ -1,6 +1,28 @@
-.PHONY: setup install rebuild start stop status check-secrets create-secrets clean
+.PHONY: setup install rebuild start stop status check-secrets create-secrets clean demo demo-build demo-run demo-clean help
 
-all: status
+all: help
+
+help:
+	@echo "NixOS Home Server Management"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  install        - Full installation (create secrets + rebuild system)"
+	@echo "  create-secrets - Create required password files and directories"
+	@echo "  rebuild        - Rebuild and switch NixOS configuration"
+	@echo "  test           - Test NixOS configuration without switching"
+	@echo "  boot           - Set configuration for next boot"
+	@echo "  status         - Show status of all services"
+	@echo "  start          - Start all services"
+	@echo "  stop           - Stop all services"
+	@echo "  restart        - Restart all services"
+	@echo "  mount-nas      - Mount all NAS shares"
+	@echo "  unmount-nas    - Unmount all NAS shares"
+	@echo "  demo           - Build and validate configuration in Docker"
+	@echo "  demo-build     - Build demo Docker image"
+	@echo "  demo-run       - Run validation in Docker"
+	@echo "  demo-clean     - Remove demo Docker image"
+	@echo "  clean          - Remove temporary files"
+	@echo "  check-secrets  - Verify all required secrets exist"
 
 # Full installation process
 install: check-secrets create-secrets rebuild
@@ -119,3 +141,28 @@ unmount-nas:
 
 clean:
 	@sudo nix-collect-garbage -d
+
+# Demo validation targets
+demo: demo-build demo-run
+
+demo-build:
+	@echo "🔨 Building NixOS demo container..."
+	@docker build -f Dockerfile.demo -t home-server-nixos-demo .
+	@echo "✅ Demo image built successfully"
+
+demo-run:
+	@echo "🚀 Running NixOS configuration validation..."
+	@echo ""
+	@docker run --rm home-server-nixos-demo
+	@echo ""
+	@echo "✅ Validation complete!"
+
+demo-interactive:
+	@echo "🐚 Starting interactive demo container..."
+	@docker run --rm -it home-server-nixos-demo /bin/bash
+
+demo-clean:
+	@echo "🧹 Cleaning up demo container..."
+	@docker rmi home-server-nixos-demo 2>/dev/null || true
+	@echo "✅ Demo cleanup complete"
+
