@@ -1,7 +1,7 @@
 { config, pkgs, ... }:
 
 {
-  networking.hostName = "home-server";
+  networking.hostName = "lab";
   networking.firewall.enable = true;
   networking.firewall.allowedTCPPorts = [ 
     53      # DNS
