@@ -16,6 +16,8 @@ help:
 	@echo "  start          - Start all services"
 	@echo "  stop           - Stop all services"
 	@echo "  restart        - Restart all services"
+	@echo "  mount-nas      - Mount all NAS shares"
+	@echo "  unmount-nas    - Unmount all NAS shares"
 	@echo "  clean          - Remove temporary files"
 	@echo "  check-secrets  - Verify all required secrets exist"
 
@@ -31,7 +33,11 @@ install: check-secrets create-secrets rebuild
 	@echo "  - Kavita:         http://localhost:5000"
 	@echo "  - Blocky DNS:     http://localhost:4000"
 	@echo ""
+	@echo "SSH server is enabled on port 22"
+	@echo "NAS shares will auto-mount when accessed"
+	@echo ""
 	@echo "Run 'make status' to check service status"
+	@echo "Run 'make mount-nas' to manually mount NAS shares"
 
 # Create required secrets and directories
 create-secrets:
@@ -47,6 +53,14 @@ create-secrets:
 	fi
 	@sudo mkdir -p /mnt/music /mnt/movies /mnt/books
 	@sudo mkdir -p /var/lib/kavita
+	@if [ ! -f /etc/smb-credentials ]; then \
+		echo "Creating SMB credentials file..."; \
+		sudo cp scripts/mount/smb-credentials /etc/smb-credentials; \
+		sudo chmod 600 /etc/smb-credentials; \
+		echo "⚠️  Please edit /etc/smb-credentials with your NAS credentials"; \
+	else \
+		echo "SMB credentials already exist"; \
+	fi
 	@echo "✅ Secrets and directories created"
 
 # Check if secrets exist
@@ -56,6 +70,11 @@ check-secrets:
 		echo "✅ Nextcloud admin password exists"; \
 	else \
 		echo "⚠️  Nextcloud admin password will be created"; \
+	fi
+	@if [ -f /etc/smb-credentials ]; then \
+		echo "✅ SMB credentials exist"; \
+	else \
+		echo "⚠️  SMB credentials will be created"; \
 	fi
 
 # Rebuild NixOS configuration
@@ -114,6 +133,22 @@ stop:
 
 # Restart all services
 restart: stop start
+
+# Mount NAS shares manually
+mount-nas:
+	@echo "Mounting NAS shares..."
+	@sudo systemctl start mnt-music.mount || true
+	@sudo systemctl start mnt-movies.mount || true
+	@sudo systemctl start mnt-books.mount || true
+	@echo "✅ NAS shares mounted"
+
+# Unmount NAS shares
+unmount-nas:
+	@echo "Unmounting NAS shares..."
+	@sudo systemctl stop mnt-music.mount || true
+	@sudo systemctl stop mnt-movies.mount || true
+	@sudo systemctl stop mnt-books.mount || true
+	@echo "✅ NAS shares unmounted"
 
 # Clean temporary files
 clean:
