@@ -1,25 +1,6 @@
-.PHONY: setup install rebuild start stop status check-secrets create-secrets clean help
+.PHONY: setup install rebuild start stop status check-secrets create-secrets clean
 
-# Default target
-all: help
-
-help:
-	@echo "NixOS Home Server Management"
-	@echo ""
-	@echo "Available targets:"
-	@echo "  install        - Full installation (create secrets + rebuild system)"
-	@echo "  create-secrets - Create required password files and directories"
-	@echo "  rebuild        - Rebuild and switch NixOS configuration"
-	@echo "  test           - Test NixOS configuration without switching"
-	@echo "  boot           - Set configuration for next boot"
-	@echo "  status         - Show status of all services"
-	@echo "  start          - Start all services"
-	@echo "  stop           - Stop all services"
-	@echo "  restart        - Restart all services"
-	@echo "  mount-nas      - Mount all NAS shares"
-	@echo "  unmount-nas    - Unmount all NAS shares"
-	@echo "  clean          - Remove temporary files"
-	@echo "  check-secrets  - Verify all required secrets exist"
+all: status
 
 # Full installation process
 install: check-secrets create-secrets rebuild
@@ -77,17 +58,14 @@ check-secrets:
 		echo "⚠️  SMB credentials will be created"; \
 	fi
 
-# Rebuild NixOS configuration
 rebuild:
 	@echo "Rebuilding NixOS configuration..."
 	sudo nixos-rebuild switch
 
-# Test configuration without switching
 test:
 	@echo "Testing NixOS configuration..."
 	sudo nixos-rebuild test
 
-# Build configuration for next boot
 boot:
 	@echo "Setting NixOS configuration for next boot..."
 	sudo nixos-rebuild boot
@@ -113,45 +91,31 @@ status:
 
 # Start all services
 start:
-	@echo "Starting all services..."
 	@sudo systemctl start home-assistant.service || true
 	@sudo systemctl start jellyfin.service || true
 	@sudo systemctl start nextcloud-setup.service || true
 	@sudo systemctl start kavita.service || true
 	@sudo systemctl start blocky.service || true
-	@echo "✅ Services started"
 
 # Stop all services
 stop:
-	@echo "Stopping all services..."
 	@sudo systemctl stop home-assistant.service || true
 	@sudo systemctl stop jellyfin.service || true
 	@sudo systemctl stop nextcloud-setup.service || true
 	@sudo systemctl stop kavita.service || true
 	@sudo systemctl stop blocky.service || true
-	@echo "✅ Services stopped"
 
-# Restart all services
 restart: stop start
 
-# Mount NAS shares manually
 mount-nas:
-	@echo "Mounting NAS shares..."
 	@sudo systemctl start mnt-music.mount || true
 	@sudo systemctl start mnt-movies.mount || true
 	@sudo systemctl start mnt-books.mount || true
-	@echo "✅ NAS shares mounted"
 
-# Unmount NAS shares
 unmount-nas:
-	@echo "Unmounting NAS shares..."
 	@sudo systemctl stop mnt-music.mount || true
 	@sudo systemctl stop mnt-movies.mount || true
 	@sudo systemctl stop mnt-books.mount || true
-	@echo "✅ NAS shares unmounted"
 
-# Clean temporary files
 clean:
-	@echo "Cleaning temporary files..."
 	@sudo nix-collect-garbage -d
-	@echo "✅ Cleanup complete"
