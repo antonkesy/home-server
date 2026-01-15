@@ -2,9 +2,8 @@
 result
 result-*
 
-# Hardware configuration (machine-specific)
-# Uncomment if you don't want to commit your hardware config
-# hardware-configuration.nix
+# Hardware configuration (machine-specific, generated during install)
+hardware-configuration.nix
 
 # Docker volumes and configs
 */config/*
