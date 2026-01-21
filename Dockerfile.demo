@@ -12,7 +12,6 @@ WORKDIR /build
 
 # Copy configuration files
 COPY configuration.nix .
-COPY hardware-configuration.nix .
 COPY flake.nix .
 
 # Create a minimal hardware configuration for container
