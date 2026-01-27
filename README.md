@@ -24,16 +24,7 @@ git clone https://github.com/antonkesy/home-server.git && cd home-server
 - Nextcloud: `http://lab:8080`
 - Blocky DNS: `http://lab:4000`
 
-```bash
-# Setup and start all services
-make setup
-make start
-
-# Stop all services
-make stop
-```
-
-## 🧪 Demo Mode
+## Demo Mode
 
 Test the NixOS configuration without a full NixOS installation:
 
@@ -58,21 +49,3 @@ The demo mode:
 This is perfect for:
 - Testing configuration changes before deployment
 - CI/CD validation
-
-## Modules
-
-```
-modules/
-  hardware/r8125.nix    # Network driver
-  networking.nix        # Hostname & firewall
-  packages.nix          # System packages
-  ssh.nix               # SSH server
-  bluetooth.nix         # Bluetooth
-  nas-mounts.nix        # NAS mounts
-  home-assistant.nix    # Home automation
-  jellyfin.nix          # Media server
-  nextcloud.nix         # Cloud storage
-  kavita.nix            # Book reader
-  blocky.nix            # DNS & ad-blocking
-  users.nix             # User accounts
-```
