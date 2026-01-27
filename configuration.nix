@@ -24,4 +24,12 @@
 
   # Enable flakes
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
+  # Git configuration
+  programs.git.enable = true;
+  programs.git.config = {
+    user.name = "Anton Kesy";
+    user.email = "anton@kesy.de";
+    pull.rebase = true;
+  };
 }
