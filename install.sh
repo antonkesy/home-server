@@ -46,10 +46,10 @@ fi
 # Apply NixOS configuration
 echo ""
 # Try to apply now (switch), fall back to non-flake if needed
-sudo nixos-rebuild switch --flake "$SCRIPT_DIR#home-server" 2>/dev/null
+sudo nixos-rebuild switch --flake "$SCRIPT_DIR#home-server"
 echo "Configuration applied to current system."
 
 # Ensure this configuration is the default for the next boot
 echo "Setting this configuration as the default for the next boot..."
-sudo nixos-rebuild boot --flake "$SCRIPT_DIR#home-server" 2>/dev/null
+sudo nixos-rebuild boot --flake "$SCRIPT_DIR#home-server"
 echo "Configuration scheduled for next boot."
