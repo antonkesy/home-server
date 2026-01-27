@@ -6,11 +6,14 @@
     enable = true;
     settings = {
       misc.privacylevel = 0;
+      misc.readOnly = false;
       dns.dnssec = true; # Enable DNSSEC validation
       dns.ecs = true; # Enable EDNS Client Subnet
       upstreams = [
         "https://one.one.one.one/dns-query" # Cloudflare (DNSSEC)
         "https://dns.google/dns-query" # Google (ECS, DNSSEC)
+        "1.1.1.1"
+        "1.1.1.2"
       ];
       webserver.api.cli_pw = true; # Enable for lists management
     };
