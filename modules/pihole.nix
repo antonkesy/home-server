@@ -7,6 +7,7 @@
     settings = {
       misc.privacylevel = 0;
       dns.dnssec = true; # Enable DNSSEC validation
+      dns.ecs = true; # Enable EDNS Client Subnet
       upstreams = [
         "https://one.one.one.one/dns-query" # Cloudflare (DNSSEC)
         "https://dns.google/dns-query" # Google (ECS, DNSSEC)
