@@ -49,6 +49,10 @@ echo ""
 sudo nixos-rebuild switch --flake "$SCRIPT_DIR#home-server"
 echo "Configuration applied to current system."
 
+# Set password for user ak
+echo "Setting password for user 'ak'..."
+sudo passwd ak
+
 # Ensure this configuration is the default for the next boot
 echo "Setting this configuration as the default for the next boot..."
 sudo nixos-rebuild boot --flake "$SCRIPT_DIR#home-server"
