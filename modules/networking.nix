@@ -4,6 +4,7 @@
   networking.hostName = "lab";
   networking.firewall.enable = true;
   networking.firewall.allowedTCPPorts = [ 
+    22      # SSH
     53      # DNS
     80      # HTTP
     443     # HTTPS
