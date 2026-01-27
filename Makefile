@@ -15,3 +15,6 @@ clean:
 # If PiHole is borken and System needs internet until reboot
 tmp-dns:
 	@sudo bash -c 'echo "nameserver 1.1.1.1" > /etc/resolv.conf'
+
+set-pihole-pw:
+	@sudo podman exec -it pihole pihole setpassword toor
