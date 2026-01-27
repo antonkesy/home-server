@@ -10,5 +10,6 @@
     htop
     curl
     wget
+    dig # DNS routing
   ];
 }
