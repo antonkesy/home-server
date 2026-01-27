@@ -1,6 +1,6 @@
 # Home Server - NixOS Configuration
 
-Home server with Home Assistant, Jellyfin, Kavita, Nextcloud, and Blocky DNS.
+Home server with Home Assistant, Jellyfin, Kavita, Nextcloud, and PiHole.
 
 ## Install
 
