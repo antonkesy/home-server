@@ -84,4 +84,7 @@
 
   # Disable systemd-resolved for DNS compatibility
   services.resolved.enable = false;
+   
+   # Ensure resolv.conf is usable
+  networking.nameservers = [ "127.0.0.1" ];
 }
