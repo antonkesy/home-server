@@ -6,9 +6,10 @@
     enable = true;
     settings = {
       misc.privacylevel = 0;
+      dns.dnssec = true; # Enable DNSSEC validation
       upstreams = [
-        "https://one.one.one.one/dns-query"
-        "https://dns.google/dns-query"
+        "https://one.one.one.one/dns-query" # Cloudflare (DNSSEC)
+        "https://dns.google/dns-query" # Google (ECS, DNSSEC)
       ];
       webserver.api.cli_pw = true; # Enable for lists management
     };
