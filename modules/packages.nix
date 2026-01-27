@@ -4,7 +4,9 @@
   environment.systemPackages = with pkgs; [
     cifs-utils
     git
-    vim
+    make
+    neovim
+    lazygit
     htop
     curl
     wget
