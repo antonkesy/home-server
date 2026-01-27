@@ -3,7 +3,6 @@
 {
   imports = [
     ./hardware-configuration.nix
-    ./modules/hardware/r8125.nix
     ./modules/networking.nix
     ./modules/packages.nix
     ./modules/ssh.nix
