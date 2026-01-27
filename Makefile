@@ -12,18 +12,3 @@ status:
 
 clean:
 	@sudo nix-collect-garbage -d
-
-# Demo validation targets
-demo: demo-build demo-run
-
-demo-build:
-	@docker build -f Dockerfile.demo -t home-server-nixos-demo .
-
-demo-run:
-	@docker run --rm home-server-nixos-demo
-
-demo-interactive:
-	@docker run --rm -it home-server-nixos-demo /bin/bash
-
-demo-clean:
-	@docker rmi home-server-nixos-demo 2>/dev/null || true
