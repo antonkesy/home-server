@@ -24,7 +24,7 @@
 
   services.pihole-web = {
     enable = true;
-    ports = [ 80 ];
+    ports = [ 4000 ];
   };
 
   # Disable systemd-resolved for DNS compatibility
