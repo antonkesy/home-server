@@ -2,9 +2,6 @@
 result
 result-*
 
-# Hardware configuration (machine-specific, generated during install)
-hardware-configuration.nix
-
 # Docker volumes and configs
 */config/*
 */cache/*
