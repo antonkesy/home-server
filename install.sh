@@ -46,26 +46,10 @@ fi
 # Apply NixOS configuration
 echo ""
 # Try to apply now (switch), fall back to non-flake if needed
-if sudo nixos-rebuild switch --flake "$SCRIPT_DIR#home-server" 2>/dev/null; then
-    echo "Configuration applied to current system."
-else
-    echo "nixos-rebuild switch with flakes failed; trying without flakes..."
-    sudo nixos-rebuild switch || true
-fi
+sudo nixos-rebuild switch --flake "$SCRIPT_DIR#home-server" 2>/dev/null
+echo "Configuration applied to current system."
 
 # Ensure this configuration is the default for the next boot
 echo "Setting this configuration as the default for the next boot..."
-if sudo nixos-rebuild boot --flake "$SCRIPT_DIR#home-server" 2>/dev/null; then
-    echo "Configuration scheduled for next boot."
-else
-    echo "nixos-rebuild boot with flakes failed; trying without flakes..."
-    sudo nixos-rebuild boot || true
-fi
-
-# If this script is being run from a live installer and /mnt is mounted,
-# show how to install the config to the target disk.
-if mountpoint -q /mnt; then
-    echo ""
-    echo "Detected /mnt mountpoint. To install this config to disk, run:"
-    echo "  sudo nixos-install --root /mnt --flake "$SCRIPT_DIR#home-server""
-fi
+sudo nixos-rebuild boot --flake "$SCRIPT_DIR#home-server" 2>/dev/null
+echo "Configuration scheduled for next boot."
