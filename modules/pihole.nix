@@ -10,13 +10,9 @@
     "d /var/lib/pihole/etc-dnsmasq.d 0755 1000 1000 -"
   ];
 
-  services.resolved.enable = true;
+  services.resolved.enable = false;
   services.resolved.dnssec = "false";
   services.resolved.fallbackDns = [ "1.1.1.1" "8.8.8.8" ];
-  
-  # Alternative: If you want to use resolvconf instead
-  # networking.resolvconf.enable = true;
-  # services.resolved.enable = false;
 
   # Configure networking
   networking = {
@@ -45,6 +41,8 @@
       IPv6 = "false";
       # Add this to prevent startup DNS issues
       REV_SERVER = "false";
+      # Permit all origins for CORS
+      CORS_ORIGIN = "*";
     };
 
     volumes = [
@@ -60,30 +58,7 @@
 
     extraOptions = [
       "--cap-add=NET_ADMIN"
-      "--dns=127.0.0.1"
       "--dns=1.1.1.1"
     ];
-  };
-
-  systemd.services.configure-dns-after-pihole = {
-    description = "Configure DNS to use Pi-hole after it starts";
-    after = [ "podman-pihole.service" ];
-    requires = [ "podman-pihole.service" ];
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
-      # Wait for Pi-hole to be ready
-      sleep 10
-      
-      # Point to Pi-hole for DNS
-      echo "nameserver 127.0.0.1" > /etc/resolv.conf
-      echo "nameserver 1.1.1.1" >> /etc/resolv.conf
-      
-      # If using resolved
-      ${pkgs.systemd}/bin/resolvconf -u || true
-    '';
   };
 }
