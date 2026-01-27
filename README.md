@@ -5,7 +5,8 @@ Home server with Home Assistant, Jellyfin, Kavita, Nextcloud, and Blocky DNS.
 ## Install
 
 ```bash
-git clone <repo-url> && cd home-server
+nix-shell -p git
+git clone https://github.com/antonkesy/home-server.git && cd home-server
 ./install.sh
 ```
 
