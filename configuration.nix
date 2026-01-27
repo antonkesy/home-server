@@ -11,7 +11,7 @@
     ./modules/home-assistant.nix
     ./modules/jellyfin.nix
     ./modules/nextcloud.nix
-    ./modules/blocky.nix
+    ./modules/pihole.nix
     ./modules/kavita.nix
     ./modules/users.nix
   ];
