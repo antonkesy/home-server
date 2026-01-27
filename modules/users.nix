@@ -5,7 +5,7 @@
 
   users.users.ak = {
     isNormalUser = true;
-    extraGroups = [ "lab" ];
+    extraGroups = [ "wheel" "lab" "networkmanager" ];
     packages = with pkgs; [];
   };
 }
