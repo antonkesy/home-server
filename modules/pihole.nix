@@ -1,90 +1,89 @@
 { config, pkgs, ... }:
 
 {
-  # Pi-hole DNS ad blocker
-  services.pihole-ftl = {
-    enable = true;
-    settings = {
-      misc.privacylevel = 0;
-      misc.readOnly = false;
-      dns.dnssec = true; # Enable DNSSEC validation
-      dns.ecs = true; # Enable EDNS Client Subnet
-      upstreams = [
-        "https://one.one.one.one/dns-query" # Cloudflare (DNSSEC)
-        "https://dns.google/dns-query" # Google (ECS, DNSSEC)
-        "1.1.1.1"
-        "1.1.1.2"
-      ];
-      webserver.api.cli_pw = true; # Enable for lists management
+  virtualisation.podman.enable = true;
+
+  # Create persistence directories
+  systemd.tmpfiles.rules = [
+    "d /var/lib/pihole 0755 1000 1000 -"
+    "d /var/lib/pihole/etc-pihole 0755 1000 1000 -"
+    "d /var/lib/pihole/etc-dnsmasq.d 0755 1000 1000 -"
+  ];
+
+  services.resolved.enable = true;
+  services.resolved.dnssec = "false";
+  services.resolved.fallbackDns = [ "1.1.1.1" "8.8.8.8" ];
+  
+  # Alternative: If you want to use resolvconf instead
+  # networking.resolvconf.enable = true;
+  # services.resolved.enable = false;
+
+  # Configure networking
+  networking = {
+    firewall = {
+      enable = true;
+      # Allow Pi-hole services (web UI exposed on host port 4000)
+      allowedTCPPorts = [ 53 4000 443 ];
+      allowedUDPPorts = [ 53 67 68 ];
     };
-    lists = [
-      {
-        url = "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts";
-        enabled = true;
-        description = "StevenBlack hosts";
-      }
-      {
-        url = "https://adaway.org/hosts.txt";
-        enabled = true;
-        description = "AdAway hosts";
-      }
-      {
-        url = "https://someonewhocares.org/hosts/zero/hosts";
-        enabled = true;
-        description = "Someone Who Cares hosts";
-      }
-      {
-        url = "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext";
-        enabled = true;
-        description = "Peter Lowe's Ad and tracking server list";
-      }
-      {
-        url = "https://raw.githubusercontent.com/blocklistproject/Lists/master/ads.txt";
-        enabled = true;
-        description = "Block List Project - Ads";
-      }
-      {
-        url = "https://raw.githubusercontent.com/blocklistproject/Lists/master/tracking.txt";
-        enabled = true;
-        description = "Block List Project - Tracking";
-      }
-      {
-        url = "https://raw.githubusercontent.com/blocklistproject/Lists/master/malware.txt";
-        enabled = true;
-        description = "Block List Project - Malware";
-      }
-      {
-        url = "https://raw.githubusercontent.com/blocklistproject/Lists/master/phishing.txt";
-        enabled = true;
-        description = "Block List Project - Phishing";
-      }
-      {
-        url = "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt";
-        enabled = true;
-        description = "HaGeZi Multi PRO - Comprehensive ad/tracking/malware blocklist";
-      }
-      {
-        url = "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/tif.txt";
-        enabled = true;
-        description = "HaGeZi Threat Intelligence Feeds - Malware, phishing, scam";
-      }
-      {
-        url = "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/popupads.txt";
-        enabled = true;
-        description = "HaGeZi Pop-Up Ads - Blocks annoying pop-up ads";
-      }
+    
+    # Use external DNS initially, will be overridden by Pi-hole
+    nameservers = [ "1.1.1.1" "8.8.8.8" ];
+  };
+
+  virtualisation.oci-containers.containers.pihole = {
+    autoStart = true;
+    image = "pihole/pihole:2025.11.1";
+
+    environment = {
+      TZ = "UTC";
+      WEBPASSWORD = "";
+      PIHOLE_UID = "1000";
+      PIHOLE_GID = "1000";
+      PIHOLE_DNS = "1.1.1.1;1.0.0.1";
+      DNSMASQ_LISTENING = "all";
+      IPv6 = "false";
+      # Add this to prevent startup DNS issues
+      REV_SERVER = "false";
+    };
+
+    volumes = [
+      "/var/lib/pihole:/etc/pihole"
+      "/var/lib/pihole/etc-dnsmasq.d:/etc/dnsmasq.d"
     ];
-    openFirewallDNS = true;
+
+    ports = [
+      "53:53/tcp"    # Bind to localhost only
+      "53:53/udp"    # Bind to localhost only
+      "4000:80/tcp"           # Web UI (host:container)
+    ];
+
+    extraOptions = [
+      "--cap-add=NET_ADMIN"
+      "--dns=127.0.0.1"
+      "--dns=1.1.1.1"
+    ];
   };
 
-  services.pihole-web = {
-    enable = true;
-    ports = [ 4000 ];
+  systemd.services.configure-dns-after-pihole = {
+    description = "Configure DNS to use Pi-hole after it starts";
+    after = [ "podman-pihole.service" ];
+    requires = [ "podman-pihole.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      # Wait for Pi-hole to be ready
+      sleep 10
+      
+      # Point to Pi-hole for DNS
+      echo "nameserver 127.0.0.1" > /etc/resolv.conf
+      echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+      
+      # If using resolved
+      ${pkgs.systemd}/bin/resolvconf -u || true
+    '';
   };
-
-  # Disable systemd-resolved for DNS compatibility
-  services.resolved.enable = false;
-   
-   # Ensure resolv.conf is usable
-  networking.nameservers = [ "127.0.0.1" ];
 }
