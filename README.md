@@ -9,13 +9,6 @@ nix-shell -p git
 git clone https://github.com/antonkesy/home-server.git && cd home-server
 ./install.sh
 ```
-
-## Update
-
-```bash
-./update.sh
-```
-
 ## Services
 
 - Home Assistant: `http://lab:8123`
