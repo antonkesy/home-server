@@ -1,21 +1,29 @@
-.PHONY: setup start
+.PHONY: install update status help
 
-all: start
+install:
+	./install.sh
 
-setup:
-	sudo systemctl stop apache2
-	sudo systemctl disable apache2
+update:
+	sudo nixos-rebuild switch --flake "home-server"
+	sudo nixos-rebuild switch
 
-start: setup
-	${MAKE} -C ./home-assistant
-	${MAKE} -C ./jellyfin
-	${MAKE} -C ./kavita
-	${MAKE} -C ./nextcloud
-	${MAKE} -C ./pihole
+status:
+	@sudo systemctl status home-assistant.service jellyfin.service nextcloud-setup.service kavita.service blocky.service --no-pager || true
 
-stop:
-	${MAKE} -C ./home-assistant stop
-	${MAKE} -C ./jellyfin stop
-	${MAKE} -C ./kavita stop
-	${MAKE} -C ./nextcloud stop
-	${MAKE} -C ./pihole stop
+clean:
+	@sudo nix-collect-garbage -d
+
+# Demo validation targets
+demo: demo-build demo-run
+
+demo-build:
+	@docker build -f Dockerfile.demo -t home-server-nixos-demo .
+
+demo-run:
+	@docker run --rm home-server-nixos-demo
+
+demo-interactive:
+	@docker run --rm -it home-server-nixos-demo /bin/bash
+
+demo-clean:
+	@docker rmi home-server-nixos-demo 2>/dev/null || true
