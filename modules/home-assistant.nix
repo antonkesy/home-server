@@ -3,7 +3,6 @@
 {
   services.home-assistant = {
     enable = true;
-    port = 8123;
     openFirewall = true;
     extraComponents = [
       "esphome"
