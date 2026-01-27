@@ -16,6 +16,9 @@
     ./modules/users.nix
   ];
 
+  # Boot loader
+  boot.loader.systemd-boot.enable = true;
+
   # System configuration
   system.stateVersion = "24.11";
 
