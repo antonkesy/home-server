@@ -1,9 +1,11 @@
 { config, pkgs, ... }:
 
 {
-  users.users.homeserver = {
+  users.groups.lab = {};
+
+  users.users.ak = {
     isNormalUser = true;
-    extraGroups = [ "wheel" ];
+    extraGroups = [ "lab" ];
     packages = with pkgs; [];
   };
 }
