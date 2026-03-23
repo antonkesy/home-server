@@ -4,11 +4,7 @@
   services.home-assistant = {
     enable = true;
     openFirewall = true;
-    extraComponents = [
-      "esphome"
-      "met"
-      "radio_browser"
-    ];
+    extraComponents = [ ];
     config = {
       default_config = {};
       http = {
