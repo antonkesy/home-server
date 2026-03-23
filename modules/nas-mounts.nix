@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ lib, config, pkgs, ... }:
 
 {
   # Create media directories
@@ -9,7 +9,7 @@
   ];
 
   # NAS mounts
-  fileSystems."/mnt/music" = {
+  fileSystems."/mnt/music" = lib.mkForce {
     device = "//akstorage0/music";
     fsType = "cifs";
     options = [ 
@@ -26,7 +26,7 @@
     ];
   };
 
-  fileSystems."/mnt/movies" = {
+  fileSystems."/mnt/movies" = lib.mkForce {
     device = "//akstorage0/movies";
     fsType = "cifs";
     options = [ 
@@ -43,7 +43,7 @@
     ];
   };
 
-  fileSystems."/mnt/books" = {
+  fileSystems."/mnt/books" = lib.mkForce {
     device = "//akstorage0/ebooks";
     fsType = "cifs";
     options = [ 
