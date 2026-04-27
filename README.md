@@ -15,7 +15,7 @@ git clone https://github.com/antonkesy/home-server.git && cd home-server
 - Jellyfin: `http://lab:8096`
 - Kavita: `http://lab:5000`
 - Nextcloud: `http://lab:8080`
-- Pi-hole: `http://lab:4000`
+- Pi-hole: `http://lab:4000/admin`
 - Paperless-ngx: `http://lab:28981/`
 
 ## Problems & Fixes
