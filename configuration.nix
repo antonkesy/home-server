@@ -13,6 +13,7 @@
     ./modules/nextcloud.nix
     ./modules/pihole.nix
     ./modules/kavita.nix
+    ./modules/paperless.nix
     ./modules/users.nix
   ];
 
