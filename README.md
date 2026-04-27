@@ -1,6 +1,6 @@
 # Home Server - NixOS Configuration
 
-Home server with Home Assistant, Jellyfin, Kavita, Nextcloud, and PiHole.
+Home server with Home Assistant, Jellyfin, Nextcloud, and PiHole.
 
 ## Install
 
@@ -13,7 +13,6 @@ git clone https://github.com/antonkesy/home-server.git && cd home-server
 
 - Home Assistant: `http://lab:8123`
 - Jellyfin: `http://lab:8096`
-- Kavita: `http://lab:5000`
 - Nextcloud: `http://lab:8080`
 - Pi-hole: `http://lab:4000/admin`
 - Paperless-ngx: `http://lab:28981/`

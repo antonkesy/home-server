@@ -17,7 +17,6 @@ fi
 # Create required directories
 echo "Creating directories..."
 sudo mkdir -p /mnt/music /mnt/movies /mnt/books
-sudo mkdir -p /var/lib/nextcloud /var/lib/kavita
 echo "Directories created"
 
 # Generate Nextcloud admin password
