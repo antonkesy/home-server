@@ -4,7 +4,7 @@
   environment.systemPackages = with pkgs; [
     cifs-utils
     git
-    gnumake
+    just
     neovim
     lazygit
     htop

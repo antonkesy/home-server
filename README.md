@@ -5,9 +5,9 @@ Home server with Home Assistant, Jellyfin, Nextcloud, and PiHole.
 ## Install
 
 ```bash
-nix-shell -p git
+nix-shell -p git just
 git clone https://github.com/antonkesy/home-server.git && cd home-server
-./install.sh
+just install
 ```
 ## Services
 
