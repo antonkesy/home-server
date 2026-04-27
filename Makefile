@@ -12,7 +12,7 @@ status:
 clean:
 	@sudo nix-collect-garbage -d
 
-# If PiHole is borken and System needs internet until reboot
+# If PiHole is broken and system needs internet until reboot
 tmp-dns:
 	@sudo bash -c 'echo "nameserver 1.1.1.1" > /etc/resolv.conf'
 
