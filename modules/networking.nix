@@ -13,6 +13,7 @@
     8080    # Nextcloud
     8096    # Jellyfin
     8123    # Home Assistant
+    28981   # Paperless-ngx
   ];
   networking.firewall.allowedUDPPorts = [ 
     53      # PiHole DNS
