@@ -39,22 +39,6 @@
       options = [ "fmask=0077" "dmask=0077" ];
     };
 
-  fileSystems."/var/lib/containers/storage/overlay" =
-    { device = "/var/lib/containers/storage/overlay";
-      fsType = "none";
-      options = [ "bind" ];
-    };
-
-  fileSystems."/var/lib/containers/storage/overlay-containers/5dc39feb7c58d88687655d9cc2ed8f4850a2e16950754fa7174b50feadcdba6c/userdata/shm" =
-    { device = "shm";
-      fsType = "tmpfs";
-    };
-
-  fileSystems."/var/lib/containers/storage/overlay/151e699972d95e51ec126c793701c1c6da2697e4ded26df9a4a795ee3bf22324/merged" =
-    { device = "overlay";
-      fsType = "overlay";
-    };
-
   swapDevices = [ ];
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
