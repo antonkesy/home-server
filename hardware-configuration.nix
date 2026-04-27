@@ -18,21 +18,6 @@
       fsType = "ext4";
     };
 
-  fileSystems."/mnt/books" =
-    { device = "systemd-1";
-      fsType = "autofs";
-    };
-
-  fileSystems."/mnt/movies" =
-    { device = "systemd-1";
-      fsType = "autofs";
-    };
-
-  fileSystems."/mnt/music" =
-    { device = "systemd-1";
-      fsType = "autofs";
-    };
-
   fileSystems."/boot" =
     { device = "/dev/disk/by-uuid/E142-12FF";
       fsType = "vfat";

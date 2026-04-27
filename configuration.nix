@@ -7,7 +7,6 @@
     ./modules/packages.nix
     ./modules/ssh.nix
     ./modules/bluetooth.nix
-    ./modules/nas-mounts.nix
     ./modules/home-assistant.nix
     ./modules/jellyfin.nix
     ./modules/nextcloud.nix
