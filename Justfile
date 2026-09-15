@@ -5,7 +5,7 @@ flake := justfile_directory() + "#lab"
 _default:
     @just --list
 
-# Hardware config, secrets, first switch, user password
+# Hardware config, first switch, user password
 install:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -13,46 +13,11 @@ install:
     SCRIPT_DIR="{{ justfile_directory() }}"
     cd "$SCRIPT_DIR"
 
-    # fixed-size read: `head -c` upstream of a pipe trips pipefail on SIGPIPE
-    gen_pw() {
-      LC_ALL=C head -c 4096 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | cut -c1-32
-    }
-
-    # `install -m` so the secret is never briefly world-readable; no trailing newline
-    put_secret() {
-      sudo install -d -m 0755 "$(dirname "$2")"
-      printf '%s' "$1" | sudo install -m 0600 /dev/stdin "$2"
-    }
-
     if [ ! -f hardware-configuration.nix ]; then
       echo "Generating hardware configuration..."
       sudo nixos-generate-config --show-hardware-config > hardware-configuration.nix
     else
       echo "Hardware configuration exists"
-    fi
-
-    if [ ! -f /var/lib/nextcloud/admin-pass ]; then
-      echo "Generating Nextcloud admin password..."
-      put_secret "$(gen_pw)" /var/lib/nextcloud/admin-pass
-      echo "  -> /var/lib/nextcloud/admin-pass (user: root)"
-    else
-      echo "Nextcloud password exists"
-    fi
-
-    if [ ! -f /var/lib/paperless/admin-pass ]; then
-      echo "Generating Paperless admin password..."
-      put_secret "$(gen_pw)" /var/lib/paperless/admin-pass
-      echo "  -> /var/lib/paperless/admin-pass (user: admin)"
-    else
-      echo "Paperless password exists"
-    fi
-
-    if [ ! -f /var/lib/pihole/pihole.env ]; then
-      echo "Generating Pi-hole web password..."
-      put_secret "FTLCONF_webserver_api_password=$(gen_pw)" /var/lib/pihole/pihole.env
-      echo "  -> /var/lib/pihole/pihole.env"
-    else
-      echo "Pi-hole password exists"
     fi
 
     echo ""

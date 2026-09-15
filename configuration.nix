@@ -14,6 +14,7 @@
     ./modules/nextcloud.nix
     ./modules/pihole.nix
     ./modules/paperless.nix
+    ./modules/secrets.nix
     ./modules/users.nix
   ];
 
