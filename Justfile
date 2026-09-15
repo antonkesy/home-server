@@ -80,3 +80,13 @@ set-pihole-pw:
     printf 'FTLCONF_webserver_api_password=%s' "$PW" | sudo install -m 0600 /dev/stdin /var/lib/pihole/pihole.env
     sudo systemctl restart podman-pihole.service
     echo "New Pi-hole password: $PW"
+
+# Print the generated service passwords
+passwords:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    show() { printf '%-12s %-6s %s\n' "$1" "$2" "${3:-<not generated>}"; }
+    show SERVICE USER PASSWORD
+    show nextcloud root "$(sudo cat /var/lib/nextcloud/admin-pass 2>/dev/null || true)"
+    show paperless admin "$(sudo cat /var/lib/paperless/admin-pass 2>/dev/null || true)"
+    show pihole - "$(sudo cat /var/lib/pihole/pihole.env 2>/dev/null | cut -d= -f2- || true)"

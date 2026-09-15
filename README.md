@@ -26,7 +26,7 @@ password for user `ak`. It is safe to re-run: existing secrets are kept.
 | Pi-hole        | `http://lab:4000/admin`      | `/var/lib/pihole/pihole.env`   |
 
 Secrets are root-owned `0600` files outside the Nix store and outside git.
-Read one with `sudo cat <path>`.
+Read one with `sudo cat <path>`, or print them all with `just passwords`.
 
 ## Day to day
 
@@ -38,6 +38,7 @@ just upgrade      # bump nixpkgs, then apply
 just rollback     # go back to the previous generation
 just generations  # what rollback would go back to
 just status       # systemctl status of the main services
+just passwords    # print the generated service passwords
 just logs podman-pihole   # follow one unit
 just clean        # garbage-collect
 ```
