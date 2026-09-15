@@ -11,6 +11,7 @@
     ./modules/bluetooth.nix
     ./modules/home-assistant.nix
     ./modules/jellyfin.nix
+    ./modules/nas.nix
     ./modules/nextcloud.nix
     ./modules/pihole.nix
     ./modules/paperless.nix
