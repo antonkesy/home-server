@@ -3,6 +3,8 @@
 {
   imports = [
     ./hardware-configuration.nix
+    ./modules/boot.nix
+    ./modules/nix.nix
     ./modules/networking.nix
     ./modules/packages.nix
     ./modules/ssh.nix
@@ -15,37 +17,22 @@
     ./modules/users.nix
   ];
 
-  # Boot loader
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
+  # Drives log timestamps, Home Assistant automations, Paperless document dates
+  # and the Pi-hole container clock. Change this if the server is not in Berlin.
+  time.timeZone = "Europe/Berlin";
+  i18n.defaultLocale = "en_US.UTF-8";
 
-  # Keep multiple generations
-  boot.loader.systemd-boot.configurationLimit = 10;
+  # Trim SSDs weekly; the root filesystem is on NVMe.
+  services.fstrim.enable = true;
 
-  # Enable boot counting / automatic retry logic
-  boot.bootspec.enable = true;
+  # Small compressed swap so a memory spike (Nextcloud cron, Paperless OCR)
+  # degrades instead of triggering the OOM killer. There is no swap partition.
+  zramSwap.enable = true;
 
-  # Mark system healthy after successful boot
-  systemd.services.boot-success = {
-    description = "Mark current boot successful";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "multi-user.target" ];
-    serviceConfig.Type = "oneshot";
-    script = ''
-      /run/current-system/bin/bootctl set-successful || true
-    '';
-  };
-
-  # reboot 30sec after kernel panic
-  boot.kernelParams = [ "panic=30" ];
-
-  # System configuration
+  # Do not change: this pins state-format compatibility to the release the
+  # machine was first installed with.
   system.stateVersion = "24.11";
 
-  # Enable flakes
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
-
-  # Git configuration
   programs.git.enable = true;
   programs.git.config = {
     user.name = "Anton Kesy";
