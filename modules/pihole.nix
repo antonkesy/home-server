@@ -29,6 +29,9 @@ in
     environment = {
       TZ = config.time.timeZone;
       FTLCONF_dns_upstreams = "1.1.1.1;1.0.0.1";
+      # fritz.box is a real public domain - without this, LAN names and reverse
+      # lookups would be asked of the internet instead of the router
+      FTLCONF_dns_revServers = "true,192.168.178.0/24,192.168.178.1,fritz.box";
       FTLCONF_dns_listeningMode = "all";
       FTLCONF_misc_etc_dnsmasq_d = "true";
       PIHOLE_UID = "1000";
@@ -54,4 +57,8 @@ in
       "--dns=1.1.1.1"
     ];
   };
+
+  # the container copies /etc/hosts at start, so a changed host record has to
+  # reach FTL somehow
+  systemd.services.podman-pihole.restartTriggers = [ config.environment.etc.hosts.source ];
 }

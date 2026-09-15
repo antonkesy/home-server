@@ -58,6 +58,13 @@ generations, so the store will not quietly fill the disk.
   (`WEBPASSWORD`, `PIHOLE_DNS_`, `DNSMASQ_LISTENING`, ...) entirely rather than
   deprecating them. Settings use the `FTLCONF_<section>_<key>` form; anything
   passed as an environment variable becomes read-only in the web UI.
+- **LAN names.** `/etc/hosts` (`modules/networking.nix`) maps `lab` and
+  `lab.fritz.box` to the server's address; podman copies that file into the
+  Pi-hole container, so FTL answers those names for the whole network. Change
+  the address there if the DHCP lease ever changes. Everything else under
+  `fritz.box`, and reverse lookups for `192.168.178.0/24`, is conditionally
+  forwarded to the Fritz!Box - `fritz.box` is a real public domain, so without
+  that those queries go to the internet and come back NXDOMAIN.
 - **The host does not resolve through Pi-hole.** `networking.nameservers`
   points at public DNS on purpose, so that a broken container cannot stop you
   from SSHing in and running `just rollback`.
@@ -74,8 +81,15 @@ generations, so the store will not quietly fill the disk.
 
 ### `ssh lab`: Connection refused
 
-`lab` is probably resolving to a loopback address. Ensure `<IP> lab` exists in
-`/etc/hosts` on the client.
+`lab` is resolving to a loopback address. Check what Pi-hole answers:
+
+```bash
+dig +short lab @192.168.178.29   # expected: 192.168.178.29
+```
+
+`127.0.0.2` means the container is still serving a stale `/etc/hosts` - restart
+it with `sudo systemctl restart podman-pihole`. If the client is not using
+Pi-hole at all, point its resolver at `192.168.178.29`.
 
 ### No DNS on the server
 
