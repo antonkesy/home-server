@@ -1,0 +1,27 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  eval:
+    name: Evaluate configuration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Check formatting
+        run: nix fmt -- --ci
+
+      # Evaluating the toplevel derivation resolves every module and option,
+      # so renamed or misspelled options fail here instead of on the server.
+      # Deliberately not `nix flake check`, which would build the closure.
+      - name: Evaluate system closure
+        run: |
+          nix eval --raw \
+            .#nixosConfigurations.lab.config.system.build.toplevel.drvPath
