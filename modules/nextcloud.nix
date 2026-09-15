@@ -7,8 +7,7 @@ in
 {
   services.nextcloud = {
     enable = true;
-    # Nextcloud only supports one major version per upgrade. Bump to
-    # nextcloud33 only after 32 has finished migrating (`nextcloud-occ status`).
+    # one major version per upgrade; 33 only after 32 has migrated
     package = pkgs.nextcloud32;
     hostName = host;
     config = {
@@ -17,8 +16,7 @@ in
     };
     settings = {
       overwriteprotocol = "http";
-      # Without the port, Nextcloud hands out redirects and share links that
-      # point back at :80, where nothing is listening.
+      # without the port, links point at :80
       overwritehost = "${host}:${toString port}";
       default_phone_region = "DE";
       trusted_domains = [ "localhost" ];
@@ -27,8 +25,7 @@ in
     maxUploadSize = "4G";
   };
 
-  # services.nextcloud parks its nginx vhost on port 80. Every other service
-  # here is addressed by port, so pin it to 8080 to match the documented URL.
+  # the module's vhost defaults to :80
   services.nginx.virtualHosts.${host}.listen = [
     {
       addr = "0.0.0.0";

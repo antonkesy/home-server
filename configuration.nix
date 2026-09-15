@@ -17,20 +17,16 @@
     ./modules/users.nix
   ];
 
-  # Drives log timestamps, Home Assistant automations, Paperless document dates
-  # and the Pi-hole container clock. Change this if the server is not in Berlin.
+  # also feeds Paperless dates and the Pi-hole container
   time.timeZone = "Europe/Berlin";
   i18n.defaultLocale = "en_US.UTF-8";
 
-  # Trim SSDs weekly; the root filesystem is on NVMe.
   services.fstrim.enable = true;
 
-  # Small compressed swap so a memory spike (Nextcloud cron, Paperless OCR)
-  # degrades instead of triggering the OOM killer. There is no swap partition.
+  # no swap partition
   zramSwap.enable = true;
 
-  # Do not change: this pins state-format compatibility to the release the
-  # machine was first installed with.
+  # don't change
   system.stateVersion = "24.11";
 
   programs.git.enable = true;

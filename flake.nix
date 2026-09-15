@@ -19,15 +19,11 @@
     {
       nixosConfigurations = {
         home-server = homeServer;
-        # networking.hostName is "lab", so a bare `nixos-rebuild --flake .`
-        # on the machine itself resolves without naming the attribute.
-        lab = homeServer;
+        lab = homeServer; # hostName, for a bare `nixos-rebuild --flake .`
       };
 
       formatter.${system} = pkgs.nixfmt-tree;
 
-      # `nix flake check` / `just check`: evaluates the whole system closure,
-      # which catches option typos and renames without building anything.
       checks.${system}.system = homeServer.config.system.build.toplevel;
     };
 }

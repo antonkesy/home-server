@@ -12,8 +12,7 @@
     ];
     packages = with pkgs; [ ];
 
-    # Add your public key here, then set PasswordAuthentication = false in
-    # modules/ssh.nix. Verify you can log in with the key before switching.
+    # add a key, verify login, then disable PasswordAuthentication in ssh.nix
     openssh.authorizedKeys.keys = [ ];
   };
 }

@@ -18,9 +18,7 @@ jobs:
       - name: Check formatting
         run: nix fmt -- --ci
 
-      # Evaluating the toplevel derivation resolves every module and option,
-      # so renamed or misspelled options fail here instead of on the server.
-      # Deliberately not `nix flake check`, which would build the closure.
+      # resolves every module and option; not `nix flake check`, which builds
       - name: Evaluate system closure
         run: |
           nix eval --raw \
