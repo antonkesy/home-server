@@ -4,13 +4,12 @@ let
   # static DHCP lease on the Fritz!Box
   nasAddress = "192.168.178.26";
 
-  # MyCloud keeps every share next to each other under the data volume
-  share = name: {
-    device = "${nasAddress}:/mnt/HD/HD_a2/${name}";
+  mount = export: {
+    device = "${nasAddress}:${export}";
     fsType = "nfs";
     options = [
       "nfsvers=3"
-      "ro" # Jellyfin only reads; metadata stays in /var/lib/jellyfin
+      "rw"
       "soft" # fail the read instead of hanging when the NAS is off
       "timeo=100"
       "retrans=2"
@@ -23,8 +22,15 @@ let
       "_netdev"
     ];
   };
+
+  # MyCloud keeps every share next to each other under the data volume
+  share = name: mount "/mnt/HD/HD_a2/${name}";
 in
 {
   fileSystems."/mnt/nas/Movies" = share "Movies";
   fileSystems."/mnt/nas/Music" = share "Music";
+
+  # these two are exported under /nfs instead of the data volume path
+  fileSystems."/mnt/nas/Shows" = mount "/nfs/Shows";
+  fileSystems."/mnt/nas/ak" = mount "/nfs/ak";
 }

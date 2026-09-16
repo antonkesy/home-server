@@ -78,9 +78,10 @@ generations, so the store will not quietly fill the disk.
   `services.nextcloud.package` to `nextcloud33` only once 32 has finished
   migrating (`nextcloud-occ status`).
 - **NAS media** (`modules/nas.nix`). The MyCloud at `192.168.178.26` exports its
-  shares over NFSv3; `Movies` and `Music` are mounted read-only at
-  `/mnt/nas/Movies` and `/mnt/nas/Music`; point a Jellyfin library at each
-  (Dashboard > Libraries > Add Media Library). The
+  shares over NFSv3, all mounted read-write under `/mnt/nas/<name>`. `Movies`
+  and `Music` sit under the data volume (`/mnt/HD/HD_a2/`); `Shows` and `ak`
+  are exported under `/nfs/` instead. Point a Jellyfin library at the media
+  ones (Dashboard > Libraries > Add Media Library). The
   mounts are automounts: nothing happens at boot, the share is mounted on first
   access and dropped again after 10 minutes idle, so a sleeping or switched-off
   NAS cannot stall a rebuild. `soft` means a read fails instead of hanging if
@@ -91,6 +92,9 @@ generations, so the store will not quietly fill the disk.
 
   NFSv3 has no authentication, so access is decided by the file modes on the
   NAS; the shares must be world-readable for user `jellyfin` to read them.
+  Writes are matched by numeric uid/gid, so an account on `lab` has to share a
+  uid with the NAS-side owner - and note `soft` can lose a write on timeout in
+  a way it cannot lose a read.
 - **Jellyfin hardware transcoding** is wired up (Intel QuickSync) but still has
   to be enabled in Dashboard > Playback > Hardware acceleration.
 - **Formatting** is checked in CI. `hardware-configuration.nix` is committed and
