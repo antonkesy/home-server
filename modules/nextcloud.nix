@@ -11,6 +11,7 @@ in
     package = pkgs.nextcloud32;
     hostName = host;
     config = {
+      # seeds the initial install only; afterwards `just set-nextcloud-pw`
       adminpassFile = "/var/lib/nextcloud/admin-pass";
       dbtype = "sqlite";
     };

@@ -38,7 +38,7 @@ in
       PIHOLE_GID = "1000";
     };
 
-    # FTLCONF_webserver_api_password, from `just install`
+    # FTLCONF_webserver_api_password, from gen-secrets
     environmentFiles = [ "${stateDir}/pihole.env" ];
 
     volumes = [

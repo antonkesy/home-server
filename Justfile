@@ -90,3 +90,12 @@ passwords:
     show nextcloud root "$(sudo cat /var/lib/nextcloud/admin-pass 2>/dev/null || true)"
     show paperless admin "$(sudo cat /var/lib/paperless/admin-pass 2>/dev/null || true)"
     show pihole - "$(sudo cat /var/lib/pihole/pihole.env 2>/dev/null | cut -d= -f2- || true)"
+
+# Rotate the Nextcloud admin password
+set-nextcloud-pw:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    PW="$(LC_ALL=C head -c 4096 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | cut -c1-32)"
+    sudo -u nextcloud env OC_PASS="$PW" nextcloud-occ user:resetpassword --password-from-env root
+    printf '%s' "$PW" | sudo install -m 0600 /dev/stdin /var/lib/nextcloud/admin-pass
+    echo "New Nextcloud password: $PW"
