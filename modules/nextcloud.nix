@@ -8,7 +8,7 @@ in
   services.nextcloud = {
     enable = true;
     # one major version per upgrade; 33 only after 32 has migrated
-    package = pkgs.nextcloud32;
+    package = pkgs.nextcloud33;
     hostName = host;
     config = {
       # seeds the initial install only; afterwards `just set-nextcloud-pw`
