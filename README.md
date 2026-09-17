@@ -95,6 +95,28 @@ generations, so the store will not quietly fill the disk.
   Writes are matched by numeric uid/gid, so an account on `lab` has to share a
   uid with the NAS-side owner - and note `soft` can lose a write on timeout in
   a way it cannot lose a read.
+
+  Nextcloud does not notice files written to the share by anything other than
+  Nextcloud itself - the file is on disk, but `oc_filecache` never hears about
+  it. `nextcloud-media-watch` (`modules/nextcloud.nix`) watches the mounts with
+  inotify and starts `nextcloud-media-scan` once the tree has been quiet for
+  two minutes, so a copy fires one scan instead of thousands.
+
+  That only covers writes made *through* `lab`. inotify reports what this
+  kernel did, and NFSv3 has no way to push a change from the other end, so a
+  file dropped on the NAS from a laptop or the MyCloud UI stays invisible until
+  someone runs `just scan`. Making that automatic would mean polling, which is
+  deliberately not done; the alternative is mounting the share into Nextcloud
+  over SMB and running `occ files_external:notify`, which upstream only vouches
+  for against Windows servers.
+
+  Holding the inotify watches keeps the shares busy, so `x-systemd.idle-timeout`
+  never fires while the watcher runs and the NAS will not spin down. Stop
+  `nextcloud-media-watch` if you would rather have it sleep.
+
+  The `/mnt/nas/*` to `ak/files/*` wiring itself is a bind mount made by hand
+  and is *not* in this repo, so a reinstall loses it. `scanPaths` has to match
+  whatever `ls -la /var/lib/nextcloud/data/ak/files/` actually shows.
 - **Jellyfin hardware transcoding** is wired up (Intel QuickSync) but still has
   to be enabled in Dashboard > Playback > Hardware acceleration.
 - **Formatting** is checked in CI. `hardware-configuration.nix` is committed and
