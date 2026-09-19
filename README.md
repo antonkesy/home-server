@@ -80,7 +80,7 @@ generations, so the store will not quietly fill the disk.
   points at public DNS on purpose, so that a broken container cannot stop you
   from SSHing in and running `just rollback`.
 - **Nextcloud upgrades** only go one major version at a time. Bump
-  `services.nextcloud.package` to `nextcloud33` only once 32 has finished
+  `services.nextcloud.package` to `nextcloud34` only once 33 has finished
   migrating (`nextcloud-occ status`).
 - **NAS media** (`modules/nas.nix`). The MyCloud at `nas.address` shares
   the names listed in `nas.shares` over SMB (both in `settings.nix`), all
