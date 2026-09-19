@@ -57,7 +57,11 @@ generations, so the store will not quietly fill the disk.
 
 ## Notes
 
-- **Timezone.** Set in `configuration.nix` (`Europe/Berlin`). It feeds log
+- **Site settings.** Every value specific to this LAN lives in `settings.nix`:
+  hostname, the server's and the NAS's address, the Fritz!Box subnet and
+  domain, upstream DNS, the NAS shares, every service port, timezone and
+  locale. Change them there; the modules only read them.
+- **Timezone.** Set in `settings.nix` (`Europe/Berlin`). It feeds log
   timestamps, Paperless document dates and the Pi-hole container clock.
 - **SSH.** Password authentication is still on because no key is deployed. Put
   a key in `users.users.ak.openssh.authorizedKeys.keys` (`modules/users.nix`),
@@ -70,7 +74,7 @@ generations, so the store will not quietly fill the disk.
 - **LAN names.** `/etc/hosts` (`modules/networking.nix`) maps `lab` and
   `lab.fritz.box` to the server's address; podman copies that file into the
   Pi-hole container, so FTL answers those names for the whole network. Change
-  the address there if the DHCP lease ever changes. Everything else under
+  `lan.address` in `settings.nix` if the DHCP lease ever changes. Everything else under
   `fritz.box`, and reverse lookups for `192.168.178.0/24`, is conditionally
   forwarded to the Fritz!Box - `fritz.box` is a real public domain, so without
   that those queries go to the internet and come back NXDOMAIN.
@@ -80,9 +84,9 @@ generations, so the store will not quietly fill the disk.
 - **Nextcloud upgrades** only go one major version at a time. Bump
   `services.nextcloud.package` to `nextcloud33` only once 32 has finished
   migrating (`nextcloud-occ status`).
-- **NAS media** (`modules/nas.nix`). The MyCloud at `192.168.178.26` shares
-  `Movies`, `Music`, `Shows` and `ak` over SMB, all mounted read-write under
-  `/mnt/nas/<name>`. Point a Jellyfin library at the media ones
+- **NAS media** (`modules/nas.nix`). The MyCloud at `nas.address` shares
+  the names listed in `nas.shares` over SMB (both in `settings.nix`), all
+  mounted read-write under `/mnt/nas/<name>`. Point a Jellyfin library at the media ones
   (Dashboard > Libraries > Add Media Library). The mounts are automounts:
   nothing happens at boot, the share is mounted on first access and dropped
   again after 10 minutes idle, so a sleeping or switched-off NAS cannot stall

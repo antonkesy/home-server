@@ -22,4 +22,4 @@ jobs:
       - name: Evaluate system closure
         run: |
           nix eval --raw \
-            .#nixosConfigurations.lab.config.system.build.toplevel.drvPath
+            .#nixosConfigurations.home-server.config.system.build.toplevel.drvPath

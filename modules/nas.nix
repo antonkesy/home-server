@@ -1,22 +1,19 @@
-{ ... }:
+{ lib, settings, ... }:
 
 let
-  # static DHCP lease on the Fritz!Box
-  nasAddress = "192.168.178.26";
-
-  # written once by `just nas-credentials`; the automount simply fails until then
-  credentials = "/var/lib/nas/credentials";
+  inherit (settings) nas;
 
   share = name: {
-    device = "//${nasAddress}/${name}";
+    device = "//${nas.address}/${name}";
     fsType = "cifs";
     options = [
-      "credentials=${credentials}"
+      # the automount simply fails until `just nas-credentials` has run
+      "credentials=${nas.credentials}"
       "vers=3.0"
       "iocharset=utf8"
       # cifs has no per-user ownership: everything belongs to ak, world-readable for jellyfin
-      "uid=ak"
-      "gid=lab"
+      "uid=${settings.user}"
+      "gid=${settings.group}"
       "file_mode=0664"
       "dir_mode=0775"
       "rw"
@@ -33,8 +30,7 @@ let
   };
 in
 {
-  fileSystems."/mnt/nas/Movies" = share "Movies";
-  fileSystems."/mnt/nas/Music" = share "Music";
-  fileSystems."/mnt/nas/Shows" = share "Shows";
-  fileSystems."/mnt/nas/ak" = share "ak";
+  fileSystems = lib.listToAttrs (
+    map (name: lib.nameValuePair "${nas.mountRoot}/${name}" (share name)) nas.shares
+  );
 }

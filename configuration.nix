@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ settings, ... }:
 
 {
   imports = [
@@ -20,8 +20,8 @@
   ];
 
   # also feeds Paperless dates and the Pi-hole container
-  time.timeZone = "Europe/Berlin";
-  i18n.defaultLocale = "en_US.UTF-8";
+  time.timeZone = settings.timeZone;
+  i18n.defaultLocale = settings.locale;
 
   services.fstrim.enable = true;
 

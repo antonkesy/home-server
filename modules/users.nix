@@ -1,13 +1,13 @@
-{ config, pkgs, ... }:
+{ pkgs, settings, ... }:
 
 {
-  users.groups.lab = { };
+  users.groups.${settings.group} = { };
 
-  users.users.ak = {
+  users.users.${settings.user} = {
     isNormalUser = true;
     extraGroups = [
       "wheel"
-      "lab"
+      settings.group
       "networkmanager"
     ];
     packages = with pkgs; [ ];

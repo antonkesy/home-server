@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ settings, ... }:
 
 {
   # Run a user ssh-agent managed by NixOS, so SSH_AUTH_SOCK is set automatically.
@@ -12,6 +12,7 @@
 
   services.openssh = {
     enable = true;
+    ports = [ settings.ports.ssh ];
     settings = {
       PermitRootLogin = "no";
       # no keys deployed yet; set false once authorizedKeys works

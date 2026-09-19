@@ -2,21 +2,23 @@
   config,
   lib,
   pkgs,
+  settings,
   ...
 }:
 
 let
-  port = 8080;
+  port = settings.ports.nextcloud;
+  nas = settings.nas.mountRoot;
   host = config.networking.hostName;
   occ = lib.getExe config.services.nextcloud.occ;
 
   # occ paths (<user>/files/<dir>) mapped to the mount they live on; the two
   # cannot be derived from each other - one is logical, one is the watched tree
   scanPaths = {
-    "ak/files/Shows" = "/mnt/nas/Shows";
-    "ak/files/Movies" = "/mnt/nas/Movies";
-    "ak/files/Music" = "/mnt/nas/Music";
-    "ak/files/NAS" = "/mnt/nas/ak";
+    "ak/files/Shows" = "${nas}/Shows";
+    "ak/files/Movies" = "${nas}/Movies";
+    "ak/files/Music" = "${nas}/Music";
+    "ak/files/NAS" = "${nas}/ak";
   };
 in
 {
@@ -34,7 +36,7 @@ in
       overwriteprotocol = "http";
       # without the port, links point at :80
       overwritehost = "${host}:${toString port}";
-      default_phone_region = "DE";
+      default_phone_region = settings.phoneRegion;
       trusted_domains = [ "localhost" ];
     };
     https = false;

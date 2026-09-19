@@ -1,6 +1,6 @@
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
-flake := justfile_directory() + "#lab"
+flake := justfile_directory() + "#home-server"
 
 _default:
     @just --list
@@ -49,7 +49,7 @@ rollback:
 
 # Evaluate without building
 check:
-    nix eval --raw "{{ justfile_directory() }}#nixosConfigurations.lab.config.system.build.toplevel.drvPath"
+    nix eval --raw "{{ justfile_directory() }}#nixosConfigurations.home-server.config.system.build.toplevel.drvPath"
     @echo ""
 
 fmt:
