@@ -14,6 +14,8 @@ just install
 `just install` generates `hardware-configuration.nix`, creates a random
 password for each service that needs one, switches the system, and sets the
 password for user `ak`. It is safe to re-run: existing secrets are kept.
+The NAS login is the one secret that cannot be generated: enter it once with
+`just nas-credentials` after the first switch.
 
 ## Services
 
@@ -45,6 +47,7 @@ just status       # systemctl status of the main services
 just passwords    # print the generated service passwords
 just set-nextcloud-pw     # rotate the Nextcloud admin password
 just set-pihole-pw        # rotate the Pi-hole web password
+just nas-credentials      # enter the NAS SMB login once
 just logs podman-pihole   # follow one unit
 just clean        # garbage-collect
 ```
@@ -77,46 +80,23 @@ generations, so the store will not quietly fill the disk.
 - **Nextcloud upgrades** only go one major version at a time. Bump
   `services.nextcloud.package` to `nextcloud33` only once 32 has finished
   migrating (`nextcloud-occ status`).
-- **NAS media** (`modules/nas.nix`). The MyCloud at `192.168.178.26` exports its
-  shares over NFSv3, all mounted read-write under `/mnt/nas/<name>`. `Movies`
-  and `Music` sit under the data volume (`/mnt/HD/HD_a2/`); `Shows` and `ak`
-  are exported under `/nfs/` instead. Point a Jellyfin library at the media
-  ones (Dashboard > Libraries > Add Media Library). The
-  mounts are automounts: nothing happens at boot, the share is mounted on first
-  access and dropped again after 10 minutes idle, so a sleeping or switched-off
-  NAS cannot stall a rebuild. `soft` means a read fails instead of hanging if
-  the NAS disappears mid-playback; swap it for `hard` if playback errors turn
-  out to be more annoying than a hung process.
+- **NAS media** (`modules/nas.nix`). The MyCloud at `192.168.178.26` shares
+  `Movies`, `Music`, `Shows` and `ak` over SMB, all mounted read-write under
+  `/mnt/nas/<name>`. Point a Jellyfin library at the media ones
+  (Dashboard > Libraries > Add Media Library). The mounts are automounts:
+  nothing happens at boot, the share is mounted on first access and dropped
+  again after 10 minutes idle, so a sleeping or switched-off NAS cannot stall
+  a rebuild. `soft` means a read fails instead of hanging if the NAS
+  disappears mid-playback; swap it for `hard` if playback errors turn out to
+  be more annoying than a hung process.
 
-  NFS has to be switched on per share in the MyCloud UI (Shares > *Movies* > NFS Access ON)
-
-  NFSv3 has no authentication, so access is decided by the file modes on the
-  NAS; the shares must be world-readable for user `jellyfin` to read them.
-  Writes are matched by numeric uid/gid, so an account on `lab` has to share a
-  uid with the NAS-side owner - and note `soft` can lose a write on timeout in
-  a way it cannot lose a read.
-
-  Nextcloud does not notice files written to the share by anything other than
-  Nextcloud itself - the file is on disk, but `oc_filecache` never hears about
-  it. `nextcloud-media-watch` (`modules/nextcloud.nix`) watches the mounts with
-  inotify and starts `nextcloud-media-scan` once the tree has been quiet for
-  two minutes, so a copy fires one scan instead of thousands.
-
-  That only covers writes made *through* `lab`. inotify reports what this
-  kernel did, and NFSv3 has no way to push a change from the other end, so a
-  file dropped on the NAS from a laptop or the MyCloud UI stays invisible until
-  someone runs `just scan`. Making that automatic would mean polling, which is
-  deliberately not done; the alternative is mounting the share into Nextcloud
-  over SMB and running `occ files_external:notify`, which upstream only vouches
-  for against Windows servers.
-
-  Holding the inotify watches keeps the shares busy, so `x-systemd.idle-timeout`
-  never fires while the watcher runs and the NAS will not spin down. Stop
-  `nextcloud-media-watch` if you would rather have it sleep.
-
-  The `/mnt/nas/*` to `ak/files/*` wiring itself is a bind mount made by hand
-  and is *not* in this repo, so a reinstall loses it. `scanPaths` has to match
-  whatever `ls -la /var/lib/nextcloud/data/ak/files/` actually shows.
+  The login lives in `/var/lib/nas/credentials`, written by
+  `just nas-credentials`; until it has been run, accessing a share fails and
+  nothing else is affected. SMB has no per-user ownership, so everything shows
+  up as `ak:lab` with `0664`/`0775`: `jellyfin` can read, `ak` can write. The
+  NAS account itself needs write access on the shares for `rw` to mean
+  anything - and note `soft` can lose a write on timeout in a way it cannot
+  lose a read.
 - **Jellyfin hardware transcoding** is wired up (Intel QuickSync) but still has
   to be enabled in Dashboard > Playback > Hardware acceleration.
 - **Formatting** is checked in CI. `hardware-configuration.nix` is committed and

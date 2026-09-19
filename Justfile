@@ -81,6 +81,18 @@ set-pihole-pw:
     sudo systemctl restart podman-pihole.service
     echo "New Pi-hole password: $PW"
 
+# Enter the NAS SMB user and password once; stored in /var/lib/nas/credentials
+nas-credentials:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    read -rp "NAS username: " USER
+    read -rsp "NAS password: " PW; echo
+    sudo install -d -m 0755 /var/lib/nas
+    printf 'username=%s\npassword=%s\n' "$USER" "$PW" | sudo install -m 0600 /dev/stdin /var/lib/nas/credentials
+    # drop live mounts so the next access uses the new credentials
+    sudo systemctl stop 'mnt-nas-*.mount' || true
+    echo "Credentials written; the shares mount on next access"
+
 # Print the generated service passwords
 passwords:
     #!/usr/bin/env bash
