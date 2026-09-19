@@ -38,8 +38,8 @@ nothing. Rotate with `just set-nextcloud-pw`, which resets the password through
 
 ```bash
 just build        # build the closure without activating it
-just update       # apply the current config
-just upgrade      # bump nixpkgs, then apply
+just update       # stage the current config for the next boot
+just upgrade      # bump nixpkgs, then stage for the next boot
 just rollback     # go back to the previous generation
 just status       # systemctl status of the main services
 just passwords    # print the generated service passwords
@@ -49,6 +49,10 @@ just nas-credentials      # enter the NAS SMB login once
 just logs podman-pihole   # follow one unit
 just clean        # garbage-collect
 ```
+
+`update` and `upgrade` only build and set the boot default; the running system
+is untouched until `sudo reboot`. `just install` is the only recipe that
+switches live.
 
 Garbage collection also runs weekly on its own (`nix.gc`), keeping 30 days of
 generations, so the store will not quietly fill the disk.

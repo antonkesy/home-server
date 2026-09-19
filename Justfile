@@ -26,18 +26,20 @@ install:
     echo "Setting password for user 'ak'..."
     sudo passwd ak
 
-# Apply the current configuration
+# Build and stage for the next boot; nothing changes until a reboot
 update:
-    sudo nixos-rebuild switch --flake "{{ flake }}"
+    sudo nixos-rebuild boot --flake "{{ flake }}"
+    @echo "staged for next boot - reboot to apply"
 
 # Build without activating
 build:
     sudo nixos-rebuild build --flake "{{ flake }}"
 
-# Bump nixpkgs, then apply
+# Bump nixpkgs, then stage for next boot
 upgrade:
     nix flake update --flake "{{ justfile_directory() }}"
-    sudo nixos-rebuild switch --flake "{{ flake }}"
+    sudo nixos-rebuild boot --flake "{{ flake }}"
+    @echo "staged for next boot - reboot to apply"
 
 # Activate the previous generation
 rollback:
