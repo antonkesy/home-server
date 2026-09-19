@@ -37,12 +37,10 @@ nothing. Rotate with `just set-nextcloud-pw`, which resets the password through
 ## Day to day
 
 ```bash
-just check        # evaluate the config without building - run before committing
 just build        # build the closure without activating it
 just update       # apply the current config
 just upgrade      # bump nixpkgs, then apply
 just rollback     # go back to the previous generation
-just generations  # what rollback would go back to
 just status       # systemctl status of the main services
 just passwords    # print the generated service passwords
 just set-nextcloud-pw     # rotate the Nextcloud admin password
@@ -104,7 +102,7 @@ generations, so the store will not quietly fill the disk.
 - **Jellyfin hardware transcoding** is wired up (Intel QuickSync) but still has
   to be enabled in Dashboard > Playback > Hardware acceleration.
 - **Formatting** is checked in CI. `hardware-configuration.nix` is committed and
-  formatted along with everything else, so run `just fmt` if you ever regenerate
+  formatted along with everything else, so run `nix fmt .` if you ever regenerate
   it with `nixos-generate-config`.
 
 ## Problems & Fixes

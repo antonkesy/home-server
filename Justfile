@@ -34,10 +34,6 @@ update:
 build:
     sudo nixos-rebuild build --flake "{{ flake }}"
 
-# Stage for next boot instead of switching live
-boot:
-    sudo nixos-rebuild boot --flake "{{ flake }}"
-
 # Bump nixpkgs, then apply
 upgrade:
     nix flake update --flake "{{ justfile_directory() }}"
@@ -47,23 +43,12 @@ upgrade:
 rollback:
     sudo nixos-rebuild switch --rollback
 
-# Evaluate without building
-check:
-    nix eval --raw "{{ justfile_directory() }}#nixosConfigurations.home-server.config.system.build.toplevel.drvPath"
-    @echo ""
-
-fmt:
-    nix fmt "{{ justfile_directory() }}"
-
 status:
     sudo systemctl status home-assistant.service jellyfin.service nextcloud-setup.service paperless-web.service podman-pihole.service --no-pager || true
 
 # Follow one unit, e.g. `just logs podman-pihole`
 logs unit:
     sudo journalctl -u "{{ unit }}" -f -n 100
-
-generations:
-    sudo nix-env --list-generations --profile /nix/var/nix/profiles/system
 
 clean:
     sudo nix-collect-garbage -d
