@@ -8,6 +8,7 @@
     neovim
     lazygit
     htop
+    duf # disk usage
     curl
     wget
     dig # DNS routing
