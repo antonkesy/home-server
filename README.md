@@ -48,7 +48,6 @@ just set-pihole-pw        # rotate the Pi-hole web password
 just nas-credentials      # enter the NAS SMB login once
 just logs podman-pihole   # follow one unit
 just scan         # index NAS files Nextcloud has not seen yet
-just to-postgres          # move Nextcloud off SQLite (see below)
 just clean        # garbage-collect
 ```
 
@@ -107,27 +106,6 @@ generations, so the store will not quietly fill the disk.
   lose a read.
 - **Jellyfin hardware transcoding** is wired up (Intel QuickSync) but still has
   to be enabled in Dashboard > Playback > Hardware acceleration.
-- **Nextcloud's database.** SQLite allows one writer at a time for the whole
-  instance, so a single `occ files:scan` over the NAS parks every browser
-  request behind it - which is what a uniformly sluggish Nextcloud looks like,
-  while Jellyfin, on its own database, stays instant. `usePostgres` in
-  `modules/nextcloud.nix` moves it to PostgreSQL in two rebuilds:
-
-  ```bash
-  just update && sudo reboot     # usePostgres = false: postgresql comes up empty
-  just to-postgres               # backs up, converts, flips usePostgres to true
-  just update && sudo reboot     # nextcloud now runs on postgres
-  sudo -u nextcloud nextcloud-occ maintenance:mode --off
-  ```
-
-  `to-postgres` deliberately leaves php-fpm down and maintenance mode on
-  between the last two steps, so neither database can drift while only one of
-  them is current. It is reversible until you write something: `dbtype` is
-  pinned by `override.config.php`, which the Nix config regenerates on every
-  activation, so putting `usePostgres` back to `false` and rebooting returns
-  you to the SQLite file untouched. Anything saved in the meantime went to
-  postgres and would be lost. There is also a dated tarball of the old database
-  and config in `/var/lib/`.
 - **Formatting** is checked in CI. `hardware-configuration.nix` is committed and
   formatted along with everything else, so run `nix fmt .` if you ever regenerate
   it with `nixos-generate-config`.

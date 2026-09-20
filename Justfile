@@ -62,53 +62,6 @@ scan:
     sudo systemctl start nextcloud-media-scan.service
     sudo journalctl -u nextcloud-media-scan -f -n 50
 
-# Convert the Nextcloud database from SQLite to PostgreSQL (see README)
-to-postgres:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    cd "{{ justfile_directory() }}"
-
-    # stage two of the move: postgresql has to be up already, which means
-    # usePostgres = false has been built and rebooted at least once
-
-    grep -q 'usePostgres = false;' modules/nextcloud.nix \
-      || { echo "usePostgres is already true - nothing left to convert"; exit 1; }
-    systemctl is-active --quiet postgresql.service \
-      || { echo "postgresql is not running - 'just update', reboot, then retry"; exit 1; }
-
-    echo "== quiescing =="
-    # every occ unit is guarded by 'occ status --exit-code', which fails in
-    # maintenance mode, so nothing scans or pre-generates behind our back
-    sudo -u nextcloud nextcloud-occ maintenance:mode --on
-    sudo systemctl stop phpfpm-nextcloud.service nextcloud-media-watch.service
-
-    STAMP="$(date +%Y%m%d-%H%M%S)"
-    BACKUP="/var/lib/nextcloud-sqlite-$STAMP.tar.gz"
-    sudo tar czf "$BACKUP" -C / var/lib/nextcloud/config var/lib/nextcloud/data/nextcloud.db
-    echo "backup: $BACKUP"
-
-    echo "== converting (it asks for confirmation) =="
-    sudo -u nextcloud nextcloud-occ db:convert-type --all-apps --clear-schema \
-      pgsql nextcloud /run/postgresql nextcloud
-    sudo -u nextcloud nextcloud-occ db:add-missing-indices
-    sudo -u nextcloud nextcloud-occ db:add-missing-columns
-
-    sed -i 's/usePostgres = false;/usePostgres = true;/' modules/nextcloud.nix
-
-    cat <<'MSG'
-
-    Converted. Nothing has switched yet: dbtype is pinned by
-    override.config.php from the Nix config, which still says sqlite, and
-    php-fpm is deliberately left down so nothing writes to either database.
-
-    Finish it:
-        just update && sudo reboot
-        sudo -u nextcloud nextcloud-occ maintenance:mode --off
-
-    To back out instead, revert the usePostgres line and reboot; the sqlite
-    file is still there and still current.
-    MSG
-
 clean:
     sudo nix-collect-garbage -d
 

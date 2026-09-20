@@ -12,21 +12,6 @@ let
   host = config.networking.hostName;
   occ = lib.getExe config.services.nextcloud.occ;
 
-  # sqlite serialises every write in the instance, so one occ files:scan over
-  # the NAS blocks every browser request behind it. moving off it takes two
-  # rebuilds and one command in between, because occ db:convert-type needs a
-  # postgres to write into before nextcloud is pointed at it:
-  #
-  #   false -> `just update` && reboot   postgresql comes up, empty
-  #            `just to-postgres`        converts, then flips this to true
-  #   true  -> `just update` && reboot   nextcloud runs on postgres
-  #
-  # dbtype is pinned by override.config.php, which is regenerated from this
-  # file on every activation - so flipping back and rebooting really does
-  # return to the sqlite database, minus anything written in between. see
-  # README > Notes before starting
-  usePostgres = false;
-
   # OC\Preview\Movie shells out to ffmpeg, which the nextcloud module puts on
   # no unit's path at all, so every unit that may generate a preview gets it
   previewTools = [ pkgs.ffmpeg-headless ];
@@ -49,12 +34,14 @@ in
     config = {
       # seeds the initial install only; afterwards `just set-nextcloud-pw`
       adminpassFile = "/var/lib/nextcloud/admin-pass";
-      dbtype = if usePostgres then "pgsql" else "sqlite";
+      # sqlite serialises every write in the instance, so one occ files:scan
+      # over the NAS would park every browser request behind it
+      dbtype = "pgsql";
     };
-    # peer auth over the unix socket, so still no runtime credentials; this
-    # also orders nextcloud-setup after postgresql.target and defaults dbhost
-    # to /run/postgresql, neither of which a hand-rolled services.postgresql does
-    database.createLocally = usePostgres;
+    # peer auth over the unix socket, so no runtime credentials; this also
+    # orders nextcloud-setup after postgresql.target and defaults dbhost to
+    # /run/postgresql, neither of which a hand-rolled services.postgresql does
+    database.createLocally = true;
     settings = {
       overwriteprotocol = "http";
       # without the port, links point at :80
@@ -111,20 +98,6 @@ in
     };
   };
 
-  # stage one of the sqlite migration: bring postgres up with an empty
-  # nextcloud database for db:convert-type to land in. once usePostgres is
-  # true, createLocally declares exactly this and this block goes away
-  services.postgresql = lib.mkIf (!usePostgres) {
-    enable = true;
-    ensureDatabases = [ "nextcloud" ];
-    ensureUsers = [
-      {
-        name = "nextcloud";
-        ensureDBOwnership = true;
-      }
-    ];
-  };
-
   # the module's vhost defaults to :80
   services.nginx.virtualHosts.${host}.listen = [
     {
@@ -150,9 +123,9 @@ in
       # a deep scan over SMB outlives the 90s default start timeout
       TimeoutStartSec = "30min";
     };
-    # a setup-only adminpass and a database reached without a password - the
-    # sqlite file, or postgres over peer auth - mean occ needs no runtime
-    # credentials, so unlike the upstream occ units this one has no LoadCredential
+    # a setup-only adminpass and a database reached over peer auth mean occ
+    # needs no runtime credentials, so unlike the upstream occ units this one
+    # has no LoadCredential
     script = ''
       set -euo pipefail
 
