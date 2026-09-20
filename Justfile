@@ -62,20 +62,6 @@ scan:
     sudo systemctl start nextcloud-media-scan.service
     sudo journalctl -u nextcloud-media-scan -f -n 50
 
-# One-off backfill of every missing Nextcloud thumbnail (hours; see README)
-warm-previews:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # reads every original over SMB once; the hourly pre-generate timer keeps
-    # up from then on. one file per size per image, so ask for the few sizes
-    # the web UI actually uses
-    sudo -u nextcloud nextcloud-occ config:app:set previewgenerator squareSizes --value="32 256"
-    sudo -u nextcloud nextcloud-occ config:app:set previewgenerator widthSizes --value="256 384"
-    sudo -u nextcloud nextcloud-occ config:app:set previewgenerator heightSizes --value="256"
-    df -h /
-    sudo -u nextcloud nextcloud-occ preview:generate-all -vv
-    df -h /
-
 # Convert the Nextcloud database from SQLite to PostgreSQL (see README)
 to-postgres:
     #!/usr/bin/env bash

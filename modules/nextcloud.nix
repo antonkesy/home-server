@@ -87,15 +87,12 @@ in
     https = false;
     maxUploadSize = "4G";
 
-    # a preview used to mean: pull the whole original over SMB, decode and
-    # resize it in PHP, per request, per thumbnail. imaginary does the resizing
-    # out of process, previewgenerator does it before the browser ever asks
+    # a preview used to mean: decode and resize the original in PHP, per
+    # request, per thumbnail. imaginary does the resizing out of process.
+    # previews are still built on demand and cached under
+    # data/appdata_*/preview - pre-generating the whole NAS ahead of time
+    # filled the SSD
     imaginary.enable = true;
-    # keep in step with `package` above
-    extraApps = { inherit (pkgs.nextcloud34Packages.apps) previewgenerator; };
-    # extraApps on its own switches the app store off; everything else here is
-    # still installed from it
-    appstoreEnable = true;
 
     # the module's defaults are below what nextcloud 34 needs - once the file
     # cache overflows php recompiles on every request and the whole UI drags
@@ -138,32 +135,6 @@ in
 
   systemd.services.phpfpm-nextcloud.path = previewTools;
   systemd.services.nextcloud-cron.path = previewTools;
-
-  # previewgenerator only queues files it saw change; the one-off backfill over
-  # everything already on the NAS is `just warm-previews`
-  systemd.services.nextcloud-preview-pregenerate = {
-    after = [ "nextcloud-setup.service" ];
-    path = previewTools;
-    serviceConfig = {
-      Type = "oneshot";
-      User = "nextcloud";
-      # same guard the module puts on nextcloud-cron
-      ExecCondition = "${occ} status --exit-code";
-      ExecStart = "${occ} preview:pre-generate";
-      # a batch of video thumbnails pulls headers over SMB one file at a time
-      TimeoutStartSec = "2h";
-    };
-  };
-
-  systemd.timers.nextcloud-preview-pregenerate = {
-    wantedBy = [ "timers.target" ];
-    after = [ "nextcloud-setup.service" ];
-    timerConfig = {
-      OnBootSec = "15m";
-      OnUnitActiveSec = "1h";
-      Unit = "nextcloud-preview-pregenerate.service";
-    };
-  };
 
   # nextcloud only indexes what it wrote itself; anything else on the share
   # stays invisible until a scan walks the tree. never timed - it is started
