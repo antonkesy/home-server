@@ -107,15 +107,6 @@ generations, so the store will not quietly fill the disk.
   lose a read.
 - **Jellyfin hardware transcoding** is wired up (Intel QuickSync) but still has
   to be enabled in Dashboard > Playback > Hardware acceleration.
-- **Nextcloud previews.** Out of the box Nextcloud builds a thumbnail the moment
-  the browser asks for one: it pulls the whole original over SMB, decodes and
-  resizes it in PHP, per image, per size. `imaginary` takes the PHP part out of
-  that by resizing out of process. Previews are still built on demand and
-  cached on the SSD under `/var/lib/nextcloud/data/appdata_*/preview`;
-  pre-generating the whole NAS ahead of time was tried and filled the disk.
-  `just disk` breaks the usage down per cache and media dir.
-  `OC\Preview\Movie` gives Movies/Shows thumbnails too, which is why
-  `ffmpeg-headless` is on the php-fpm and cron unit paths.
 - **Nextcloud's database.** SQLite allows one writer at a time for the whole
   instance, so a single `occ files:scan` over the NAS parks every browser
   request behind it - which is what a uniformly sluggish Nextcloud looks like,
