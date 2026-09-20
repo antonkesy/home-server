@@ -48,6 +48,11 @@ rollback:
 status:
     sudo systemctl status home-assistant.service jellyfin.service nextcloud-setup.service paperless-web.service podman-pihole.service --no-pager || true
 
+# Space used by caches and stored images, then free space on /
+disk:
+    sudo du -shc /var/lib/nextcloud/data/appdata_*/preview /var/lib/nextcloud/data /var/cache/jellyfin /var/lib/jellyfin/metadata /var/lib/paperless/media /var/lib/redis-nextcloud /var/lib/redis-paperless /var/lib/containers/storage 2>/dev/null || true
+    df -h /
+
 # Follow one unit, e.g. `just logs podman-pihole`
 logs unit:
     sudo journalctl -u "{{ unit }}" -f -n 100

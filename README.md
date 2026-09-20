@@ -119,7 +119,8 @@ generations, so the store will not quietly fill the disk.
   changed after it was installed, so run `just warm-previews` once to backfill
   everything already on the NAS. It takes hours and reads every original over
   SMB once; the thumbnails then live on the SSD under
-  `/var/lib/nextcloud/data/appdata_*/preview`, so watch `df -h /`.
+  `/var/lib/nextcloud/data/appdata_*/preview`, so watch `df -h /`;
+  `just disk` breaks the usage down per cache and media dir.
   `OC\Preview\Movie` gives Movies/Shows thumbnails too, which is why
   `ffmpeg-headless` is on the php-fpm, cron and pre-generate unit paths.
 - **Nextcloud's database.** SQLite allows one writer at a time for the whole
