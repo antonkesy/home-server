@@ -16,14 +16,18 @@ let
   # no unit's path at all, so every unit that may generate a preview gets it
   previewTools = [ pkgs.ffmpeg-headless ];
 
-  # occ paths (<user>/files/<dir>) mapped to the mount they live on; the two
-  # cannot be derived from each other - one is logical, one is the watched tree
-  scanPaths = {
-    "ak/files/Shows" = "${nas}/Shows";
-    "ak/files/Movies" = "${nas}/Movies";
-    "ak/files/Music" = "${nas}/Music";
-    "ak/files/NAS" = "${nas}/ak";
+  # nextcloud folder -> host mount from modules/nas.nix, exposed as a "Local"
+  # external storage
+  mounts = {
+    Shows = "${nas}/Shows";
+    Movies = "${nas}/Movies";
+    Music = "${nas}/Music";
+    NAS = "${nas}/ak";
   };
+
+  mountId =
+    name:
+    ''$(${occ} files_external:list --output=json | jq '.[] | select(.mount_point == "/${name}") | .mount_id')'';
 in
 {
   services.nextcloud = {
@@ -109,36 +113,60 @@ in
   systemd.services.phpfpm-nextcloud.path = previewTools;
   systemd.services.nextcloud-cron.path = previewTools;
 
+  # external mounts live in the database, so they are reconciled on every boot
+  systemd.services.nextcloud-external-storage = {
+    wantedBy = [ "multi-user.target" ];
+    after = [ "nextcloud-setup.service" ];
+    path = with pkgs; [ jq ];
+    serviceConfig = {
+      Type = "oneshot";
+      User = "nextcloud";
+      # skip while uninstalled or in maintenance mode
+      ExecCondition = "${occ} status --exit-code";
+    };
+    script = ''
+      set -euo pipefail
+
+      ${occ} app:enable files_external
+
+      ${lib.concatStringsSep "\n" (
+        lib.mapAttrsToList (name: mount: ''
+          if [ -z "${mountId name}" ]; then
+            ${occ} files_external:create ${lib.escapeShellArg "/${name}"} local null::null \
+              --config datadir=${lib.escapeShellArg mount}
+          fi
+        '') mounts
+      )}
+    '';
+  };
+
   # nextcloud only indexes what it wrote itself; anything else on the share
   # stays invisible until a scan walks the tree. never timed - it is started
   # by nextcloud-media-watch below, or by hand via `just scan`
   systemd.services.nextcloud-media-scan = {
-    after = [ "nextcloud-setup.service" ];
+    after = [ "nextcloud-external-storage.service" ];
+    wants = [ "nextcloud-external-storage.service" ];
+    path = with pkgs; [ jq ];
     serviceConfig = {
       Type = "oneshot";
       User = "nextcloud";
-      # the guard the module puts on nextcloud-cron: skip while nextcloud is
-      # uninstalled or in maintenance mode rather than scan mid-upgrade
       ExecCondition = "${occ} status --exit-code";
       # a deep scan over SMB outlives the 90s default start timeout
       TimeoutStartSec = "30min";
     };
-    # a setup-only adminpass and a database reached over peer auth mean occ
-    # needs no runtime credentials, so unlike the upstream occ units this one
-    # has no LoadCredential
     script = ''
       set -euo pipefail
 
       # the ls triggers the automount; with soft and mount-timeout=10s an
       # absent NAS errors out instead of hanging, so it is skipped not failed
       ${lib.concatStringsSep "\n" (
-        lib.mapAttrsToList (occPath: mount: ''
+        lib.mapAttrsToList (name: mount: ''
           if timeout 15 ls ${lib.escapeShellArg mount} >/dev/null 2>&1; then
-            ${occ} files:scan --path=${lib.escapeShellArg occPath}
+            ${occ} files_external:scan "${mountId name}"
           else
-            echo "skipping ${occPath}: ${mount} unreachable"
+            echo "skipping ${name}: ${mount} unreachable"
           fi
-        '') scanPaths
+        '') mounts
       )}
     '';
   };
@@ -148,7 +176,7 @@ in
   # for those, `just scan`. holding the watches also pins the automounts
   systemd.services.nextcloud-media-watch = {
     wantedBy = [ "multi-user.target" ];
-    after = [ "nextcloud-setup.service" ];
+    after = [ "nextcloud-external-storage.service" ];
     path = with pkgs; [ inotify-tools ];
     serviceConfig = {
       # the shares are automounts: a sleeping NAS fails the watch instead of
@@ -162,7 +190,7 @@ in
       inotifywait --monitor --recursive --quiet --format '%w%f' \
         --event close_write --event create --event delete \
         --event moved_to --event moved_from \
-        ${lib.escapeShellArgs (lib.attrValues scanPaths)} |
+        ${lib.escapeShellArgs (lib.attrValues mounts)} |
       while read -r changed; do
         echo "changed: $changed"
         # a copy fires thousands of events; collapse the whole burst into one

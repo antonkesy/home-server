@@ -90,7 +90,8 @@ generations, so the store will not quietly fill the disk.
 - **NAS media** (`modules/nas.nix`). The MyCloud at `nas.address` shares
   the names listed in `nas.shares` over SMB (both in `settings.nix`), all
   mounted read-write under `/mnt/nas/<name>`. Point a Jellyfin library at the media ones
-  (Dashboard > Libraries > Add Media Library). The mounts are automounts:
+  (Dashboard > Libraries > Add Media Library). Nextcloud mounts them as
+  external storage on boot (`nextcloud-external-storage`). The mounts are automounts:
   nothing happens at boot, the share is mounted on first access and dropped
   again after 10 minutes idle, so a sleeping or switched-off NAS cannot stall
   a rebuild. `soft` means a read fails instead of hanging if the NAS
