@@ -12,6 +12,25 @@ let
   host = config.networking.hostName;
   occ = lib.getExe config.services.nextcloud.occ;
 
+  # sqlite serialises every write in the instance, so one occ files:scan over
+  # the NAS blocks every browser request behind it. moving off it takes two
+  # rebuilds and one command in between, because occ db:convert-type needs a
+  # postgres to write into before nextcloud is pointed at it:
+  #
+  #   false -> `just update` && reboot   postgresql comes up, empty
+  #            `just to-postgres`        converts, then flips this to true
+  #   true  -> `just update` && reboot   nextcloud runs on postgres
+  #
+  # dbtype is pinned by override.config.php, which is regenerated from this
+  # file on every activation - so flipping back and rebooting really does
+  # return to the sqlite database, minus anything written in between. see
+  # README > Notes before starting
+  usePostgres = false;
+
+  # OC\Preview\Movie shells out to ffmpeg, which the nextcloud module puts on
+  # no unit's path at all, so every unit that may generate a preview gets it
+  previewTools = [ pkgs.ffmpeg-headless ];
+
   # occ paths (<user>/files/<dir>) mapped to the mount they live on; the two
   # cannot be derived from each other - one is logical, one is the watched tree
   scanPaths = {
@@ -30,17 +49,83 @@ in
     config = {
       # seeds the initial install only; afterwards `just set-nextcloud-pw`
       adminpassFile = "/var/lib/nextcloud/admin-pass";
-      dbtype = "sqlite";
+      dbtype = if usePostgres then "pgsql" else "sqlite";
     };
+    # peer auth over the unix socket, so still no runtime credentials; this
+    # also orders nextcloud-setup after postgresql.target and defaults dbhost
+    # to /run/postgresql, neither of which a hand-rolled services.postgresql does
+    database.createLocally = usePostgres;
     settings = {
       overwriteprotocol = "http";
       # without the port, links point at :80
       overwritehost = "${host}:${toString port}";
       default_phone_region = settings.phoneRegion;
       trusted_domains = [ "localhost" ];
+
+      # the module's list is fine until imaginary is on, at which point it
+      # swaps in an imaginary-flavoured one - with no video provider. spell the
+      # whole list out so Movies/Shows keep their thumbnails
+      enabledPreviewProviders = [
+        "OC\\Preview\\Imaginary"
+        "OC\\Preview\\ImaginaryPDF"
+        # libvips covers heic/heif through the imaginary provider, so no
+        # separate OC\Preview\HEIC (which would want imagick + a heic delegate)
+        "OC\\Preview\\Movie"
+        "OC\\Preview\\Krita"
+        "OC\\Preview\\MarkDown"
+        "OC\\Preview\\TXT"
+        "OC\\Preview\\OpenDocument"
+      ];
+      # nextcloud defaults to 4096: a quarter of the pixels is a quarter of the
+      # bytes read back off the SSD, and nothing here has a 4k display
+      preview_max_x = 2048;
+      preview_max_y = 2048;
+      jpeg_quality = 60;
+      # MB per preview job; the cap that keeps one huge image off the box
+      preview_max_memory = 512;
     };
     https = false;
     maxUploadSize = "4G";
+
+    # a preview used to mean: pull the whole original over SMB, decode and
+    # resize it in PHP, per request, per thumbnail. imaginary does the resizing
+    # out of process, previewgenerator does it before the browser ever asks
+    imaginary.enable = true;
+    # keep in step with `package` above
+    extraApps = { inherit (pkgs.nextcloud34Packages.apps) previewgenerator; };
+    # extraApps on its own switches the app store off; everything else here is
+    # still installed from it
+    appstoreEnable = true;
+
+    # the module's defaults are below what nextcloud 34 needs - once the file
+    # cache overflows php recompiles on every request and the whole UI drags
+    phpOptions = {
+      # maxUploadSize sets upload_max_filesize, post_max_size *and*
+      # memory_limit, so a 4G upload cap asks for 4G per worker - times
+      # pm.max_children = 120, on a box with no swap. uploads are chunked and
+      # nginx streams them (fastcgi_request_buffering off), so no worker ever
+      # holds a whole file; the cap only has to cover one preview job
+      memory_limit = lib.mkForce "1G";
+      "opcache.interned_strings_buffer" = "32";
+      "opcache.max_accelerated_files" = "25000";
+      "opcache.memory_consumption" = "256";
+      # the store is read-only, so there is nothing to notice changing
+      "opcache.revalidate_freq" = "60";
+    };
+  };
+
+  # stage one of the sqlite migration: bring postgres up with an empty
+  # nextcloud database for db:convert-type to land in. once usePostgres is
+  # true, createLocally declares exactly this and this block goes away
+  services.postgresql = lib.mkIf (!usePostgres) {
+    enable = true;
+    ensureDatabases = [ "nextcloud" ];
+    ensureUsers = [
+      {
+        name = "nextcloud";
+        ensureDBOwnership = true;
+      }
+    ];
   };
 
   # the module's vhost defaults to :80
@@ -50,6 +135,35 @@ in
       inherit port;
     }
   ];
+
+  systemd.services.phpfpm-nextcloud.path = previewTools;
+  systemd.services.nextcloud-cron.path = previewTools;
+
+  # previewgenerator only queues files it saw change; the one-off backfill over
+  # everything already on the NAS is `just warm-previews`
+  systemd.services.nextcloud-preview-pregenerate = {
+    after = [ "nextcloud-setup.service" ];
+    path = previewTools;
+    serviceConfig = {
+      Type = "oneshot";
+      User = "nextcloud";
+      # same guard the module puts on nextcloud-cron
+      ExecCondition = "${occ} status --exit-code";
+      ExecStart = "${occ} preview:pre-generate";
+      # a batch of video thumbnails pulls headers over SMB one file at a time
+      TimeoutStartSec = "2h";
+    };
+  };
+
+  systemd.timers.nextcloud-preview-pregenerate = {
+    wantedBy = [ "timers.target" ];
+    after = [ "nextcloud-setup.service" ];
+    timerConfig = {
+      OnBootSec = "15m";
+      OnUnitActiveSec = "1h";
+      Unit = "nextcloud-preview-pregenerate.service";
+    };
+  };
 
   # nextcloud only indexes what it wrote itself; anything else on the share
   # stays invisible until a scan walks the tree. never timed - it is started
@@ -62,11 +176,12 @@ in
       # the guard the module puts on nextcloud-cron: skip while nextcloud is
       # uninstalled or in maintenance mode rather than scan mid-upgrade
       ExecCondition = "${occ} status --exit-code";
-      # a deep scan over NFSv3 outlives the 90s default start timeout
+      # a deep scan over SMB outlives the 90s default start timeout
       TimeoutStartSec = "30min";
     };
-    # sqlite and a setup-only adminpass mean occ needs no runtime credentials,
-    # so unlike the upstream occ units this one needs no LoadCredential
+    # a setup-only adminpass and a database reached without a password - the
+    # sqlite file, or postgres over peer auth - mean occ needs no runtime
+    # credentials, so unlike the upstream occ units this one has no LoadCredential
     script = ''
       set -euo pipefail
 

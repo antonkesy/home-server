@@ -47,6 +47,9 @@ just set-nextcloud-pw     # rotate the Nextcloud admin password
 just set-pihole-pw        # rotate the Pi-hole web password
 just nas-credentials      # enter the NAS SMB login once
 just logs podman-pihole   # follow one unit
+just scan         # index NAS files Nextcloud has not seen yet
+just warm-previews        # one-off: build every missing Nextcloud thumbnail
+just to-postgres          # move Nextcloud off SQLite (see below)
 just clean        # garbage-collect
 ```
 
@@ -105,6 +108,41 @@ generations, so the store will not quietly fill the disk.
   lose a read.
 - **Jellyfin hardware transcoding** is wired up (Intel QuickSync) but still has
   to be enabled in Dashboard > Playback > Hardware acceleration.
+- **Nextcloud previews.** Out of the box Nextcloud builds a thumbnail the moment
+  the browser asks for one: it pulls the whole original over SMB, decodes and
+  resizes it in PHP, per image, per size. On a NAS-backed library that is the
+  reason a folder of photos crawls while Jellyfin - which builds its posters
+  during a library scan and serves them off the SSD - is instant. So previews
+  here are built ahead of time instead: `imaginary` does the resizing out of
+  process, and the `previewgenerator` app queues changed files for the hourly
+  `nextcloud-preview-pregenerate` timer. That timer only ever sees files that
+  changed after it was installed, so run `just warm-previews` once to backfill
+  everything already on the NAS. It takes hours and reads every original over
+  SMB once; the thumbnails then live on the SSD under
+  `/var/lib/nextcloud/data/appdata_*/preview`, so watch `df -h /`.
+  `OC\Preview\Movie` gives Movies/Shows thumbnails too, which is why
+  `ffmpeg-headless` is on the php-fpm, cron and pre-generate unit paths.
+- **Nextcloud's database.** SQLite allows one writer at a time for the whole
+  instance, so a single `occ files:scan` over the NAS parks every browser
+  request behind it - which is what a uniformly sluggish Nextcloud looks like,
+  while Jellyfin, on its own database, stays instant. `usePostgres` in
+  `modules/nextcloud.nix` moves it to PostgreSQL in two rebuilds:
+
+  ```bash
+  just update && sudo reboot     # usePostgres = false: postgresql comes up empty
+  just to-postgres               # backs up, converts, flips usePostgres to true
+  just update && sudo reboot     # nextcloud now runs on postgres
+  sudo -u nextcloud nextcloud-occ maintenance:mode --off
+  ```
+
+  `to-postgres` deliberately leaves php-fpm down and maintenance mode on
+  between the last two steps, so neither database can drift while only one of
+  them is current. It is reversible until you write something: `dbtype` is
+  pinned by `override.config.php`, which the Nix config regenerates on every
+  activation, so putting `usePostgres` back to `false` and rebooting returns
+  you to the SQLite file untouched. Anything saved in the meantime went to
+  postgres and would be lost. There is also a dated tarball of the old database
+  and config in `/var/lib/`.
 - **Formatting** is checked in CI. `hardware-configuration.nix` is committed and
   formatted along with everything else, so run `nix fmt .` if you ever regenerate
   it with `nixos-generate-config`.
