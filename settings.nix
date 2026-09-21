@@ -36,9 +36,25 @@
       "Shows"
       "ak"
     ];
+    # paperless consumes and stores documents on this one, so it may not idle
+    # out from under a running service; the media shares still do
+    keepMounted = [ "ak" ];
     mountRoot = "/mnt/nas";
     # written once by `just nas-credentials`
     credentials = "/var/lib/nas/credentials";
+  };
+
+  # scanned documents on the `ak` share; Nextcloud shows the tree as
+  # NAS/Documents/Paperless
+  paperless = {
+    dir = "/mnt/nas/ak/Documents/Paperless";
+    # pre-paperless documents, imported once with `just import-legacy`
+    legacyDir = "/mnt/nas/ak/Documents/Legacy";
+    # cifs reports no remote writes, so the consumer polls instead (seconds)
+    pollInterval = 60;
+    # a file must be this quiet before it is consumed; the 5s default is too
+    # tight for a multi-page scan arriving over SMB
+    stabilityDelay = 30;
   };
 
   # config + secrets snapshot to the NAS; `just backup`, `just restore`

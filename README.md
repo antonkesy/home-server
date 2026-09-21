@@ -50,6 +50,7 @@ just backup               # snapshot config + secrets to the NAS
 just restore              # put the newest snapshot back onto this machine
 just logs podman-pihole   # follow one unit
 just scan         # index NAS files Nextcloud has not seen yet
+just import-legacy [subdir]   # copy the pre-Paperless documents into consume
 just clean        # garbage-collect
 ```
 
@@ -75,11 +76,13 @@ cannot regenerate:
 - Jellyfin: config, library database, plugins
 - Pi-hole: `pihole.toml`, `gravity.db` (adlists, allow/deny lists), `dnsmasq.d`
 
-Not in it: Nextcloud user files, Paperless documents (they list but do not open
-until re-imported), NAS media, previews, Jellyfin metadata, caches, logs and
-Home Assistant history. Jellyfin, Paperless and Pi-hole are stopped for a few
-seconds while the snapshot is taken; the copy to the NAS is verified byte for
-byte, since a `soft` mount can drop a write.
+Not in it: Nextcloud user files, NAS media, previews, Jellyfin metadata,
+caches, logs and Home Assistant history. Paperless documents are no longer on
+this list, because they live on the NAS themselves - which also means the
+archive and the backups of its database now sit on the same box, so losing the
+NAS costs both. Jellyfin, Paperless and Pi-hole are stopped for a few seconds
+while the snapshot is taken; the copy to the NAS is verified byte for byte,
+since a `soft` mount can drop a write.
 
 Fresh machine, one command:
 
@@ -128,9 +131,11 @@ than the archive was taken with (`manifest` inside the archive says which).
   mounted read-write under `/mnt/nas/<name>`. Point a Jellyfin library at the media ones
   (Dashboard > Libraries > Add Media Library). Nextcloud mounts them as
   external storage on boot (`nextcloud-external-storage`). The mounts are automounts:
-  nothing happens at boot, the share is mounted on first access and dropped
-  again after 10 minutes idle, so a sleeping or switched-off NAS cannot stall
-  a rebuild. `soft` means a read fails instead of hanging if the NAS
+  nothing happens at boot and the share is mounted on first access, so a
+  sleeping or switched-off NAS cannot stall a rebuild. The media shares are
+  dropped again after 10 minutes idle; the shares listed in `nas.keepMounted`
+  are not, because a service runs off them (see **Paperless** below).
+  `soft` means a read fails instead of hanging if the NAS
   disappears mid-playback; swap it for `hard` if playback errors turn out to
   be more annoying than a hung process.
 
@@ -141,6 +146,32 @@ than the archive was taken with (`manifest` inside the archive says which).
   NAS account itself needs write access on the shares for `rw` to mean
   anything - and note `soft` can lose a write on timeout in a way it cannot
   lose a read.
+- **Paperless** (`modules/paperless.nix`) keeps its documents on the NAS, under
+  `Documents/Paperless` on the `ak` share - `NAS/Documents/Paperless` in
+  Nextcloud, `paperless.dir` in `settings.nix`. Drop a scan into `consume/` by
+  any route (Nextcloud, SMB, a scanner writing to the share) and it is filed
+  within a minute or two; the finished document lands in `media/`. Only the
+  database, the search index and the secret key stay on the SSD, and those are
+  what `just backup` covers.
+
+  cifs reports no remote writes, so the consumer polls `consume/` every
+  `paperless.pollInterval` seconds instead of using inotify, and waits
+  `paperless.stabilityDelay` for a file to stop changing before touching it.
+  Because the documents are on the share, the paperless units depend on the
+  `ak` mount: the share is in `nas.keepMounted` so an idle unmount cannot take
+  them down, and on a fresh machine they stay failed until
+  `just nas-credentials` has run (`just migrate` does them in that order).
+  `paperless-nas-dirs.service` creates `consume/` and `media/` once the share
+  is really mounted - the units are sandboxed and will not start without them.
+
+  `just import-legacy [subdir]` copies the pre-Paperless documents from
+  `paperless.legacyDir` into `consume/`. It copies rather than moves, so the
+  originals survive; anything Paperless cannot parse stays behind in `consume/`
+  along with the emptied subdirectories, and wants sweeping up afterwards.
+
+  The AI features (`PAPERLESS_AI_*`) are off. Turning them on means picking a
+  backend - `ollama` locally, or an OpenAI-compatible API - and for the latter
+  an API key through `services.paperless.environmentFile`.
 - **Jellyfin hardware transcoding** is wired up (Intel QuickSync) but still has
   to be enabled in Dashboard > Playback > Hardware acceleration.
 - **Formatting** is checked in CI. `hardware-configuration.nix` is committed and

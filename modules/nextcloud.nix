@@ -178,7 +178,8 @@ in
 
   # inotify only reports writes this kernel performed, so this catches
   # everything written through lab and nothing written on the NAS itself -
-  # for those, `just scan`. holding the watches also pins the automounts
+  # for those, `just scan`. the watches do not pin the automounts - inotify
+  # holds an inode, not a mount - it is the restart below that re-triggers them
   systemd.services.nextcloud-media-watch = {
     wantedBy = [ "multi-user.target" ];
     after = [ "nextcloud-external-storage.service" ];
@@ -192,10 +193,13 @@ in
     script = ''
       set -euo pipefail
 
+      # @path prunes a subtree from the recursive watch: paperless writes every
+      # consumed document under there, and each write would otherwise trigger a
+      # deep scan of every share. `just scan` still indexes it
       inotifywait --monitor --recursive --quiet --format '%w%f' \
         --event close_write --event create --event delete \
         --event moved_to --event moved_from \
-        ${lib.escapeShellArgs (lib.attrValues mounts)} |
+        ${lib.escapeShellArgs (lib.attrValues mounts ++ [ "@${settings.paperless.dir}" ])} |
       while read -r changed; do
         echo "changed: $changed"
         # a copy fires thousands of events; collapse the whole burst into one

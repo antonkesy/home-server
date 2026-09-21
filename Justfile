@@ -61,12 +61,25 @@ migrate: install nas-credentials restore
 
 # Space used by caches and stored images, then free space on /
 disk:
-    sudo du -shc /var/lib/nextcloud/data/appdata_*/preview /var/lib/nextcloud/data /var/cache/jellyfin /var/lib/jellyfin/metadata /var/lib/paperless/media /var/lib/redis-nextcloud /var/lib/redis-paperless /var/lib/containers/storage 2>/dev/null || true
+    sudo du -shc /var/lib/nextcloud/data/appdata_*/preview /var/lib/nextcloud/data /var/cache/jellyfin /var/lib/jellyfin/metadata /var/lib/paperless /var/lib/redis-nextcloud /var/lib/redis-paperless /var/lib/containers/storage 2>/dev/null || true
     df -h /
 
 # Follow one unit, e.g. `just logs podman-pihole`
 logs unit:
     sudo journalctl -u "{{ unit }}" -f -n 100
+
+# Copy pre-paperless documents into the consume dir; safe to re-run.
+# Paths from settings.nix (paperless.legacyDir, paperless.dir)
+import-legacy subdir=".":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SRC="/mnt/nas/ak/Documents/ManualSorting/{{ subdir }}"
+    DST="/mnt/nas/ak/Documents/Paperless/consume"
+    # triggers the NAS automount; fails fast instead of hanging while it sleeps
+    timeout 15 ls "$SRC" >/dev/null || { echo "$SRC unreachable" >&2; exit 1; }
+    # a copy, not a move: paperless deletes what it consumed, the originals stay
+    sudo cp -rvn "$SRC/." "$DST/"
+    echo "copied - follow with: just logs paperless-consumer"
 
 # Index NAS files Nextcloud has not seen; also runs on its own from the watcher
 scan:
