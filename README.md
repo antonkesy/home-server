@@ -46,6 +46,8 @@ just passwords    # print the generated service passwords
 just set-nextcloud-pw     # rotate the Nextcloud admin password
 just set-pihole-pw        # rotate the Pi-hole web password
 just nas-credentials      # enter the NAS SMB login once
+just backup               # snapshot config + secrets to the NAS
+just restore              # put the newest snapshot back onto this machine
 just logs podman-pihole   # follow one unit
 just scan         # index NAS files Nextcloud has not seen yet
 just clean        # garbage-collect
@@ -57,6 +59,40 @@ switches live.
 
 Garbage collection also runs weekly on its own (`nix.gc`), keeping 30 days of
 generations, so the store will not quietly fill the disk.
+
+## Backup & restore
+
+`just backup [dir]` writes one `lab-<date>.tar.zst` to `/mnt/nas/ak/backups/lab`
+(or `dir`); `lab-backup.timer` does the same every Sunday morning and keeps the
+last eight (`backup` in `settings.nix`). The archive holds what `just install`
+cannot regenerate:
+
+- the generated service passwords, the NAS login, the SSH host keys
+- Nextcloud: `config.php`, installed apps, app data and a full dump of its
+  Postgres database (users, shares, external-storage mounts)
+- Paperless: database and secret key (tags, correspondents, users)
+- Home Assistant: `.storage` (integrations, auth, devices) and yaml
+- Jellyfin: config, library database, plugins
+- Pi-hole: `pihole.toml`, `gravity.db` (adlists, allow/deny lists), `dnsmasq.d`
+
+Not in it: Nextcloud user files, Paperless documents (they list but do not open
+until re-imported), NAS media, previews, Jellyfin metadata, caches, logs and
+Home Assistant history. Jellyfin, Paperless and Pi-hole are stopped for a few
+seconds while the snapshot is taken; the copy to the NAS is verified byte for
+byte, since a `soft` mount can drop a write.
+
+Fresh machine, one command:
+
+```bash
+just migrate      # = install, nas-credentials, restore
+```
+
+`restore` takes the newest archive in the backup dir, or a path
+(`just restore /media/usb/lab-2026-09-21-0530.tar.zst`). It stops the services,
+extracts over `/var/lib`, recreates the Nextcloud database, restarts `sshd` with
+the old host keys and re-runs `nextcloud-setup`, which upgrades instead of
+installing because `config.php` exists. Restore onto the same or a newer nixpkgs
+than the archive was taken with (`manifest` inside the archive says which).
 
 ## Notes
 

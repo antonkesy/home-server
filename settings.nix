@@ -41,6 +41,14 @@
     credentials = "/var/lib/nas/credentials";
   };
 
+  # config + secrets snapshot to the NAS; `just backup`, `just restore`
+  backup = {
+    dir = "/mnt/nas/ak/backups/lab";
+    keep = 8;
+    # after pi-hole's sunday 03:xx gravity run
+    onCalendar = "Sun 05:30";
+  };
+
   # all opened in the firewall; jellyfin's is fixed upstream
   ports = {
     ssh = 22;

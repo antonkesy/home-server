@@ -8,6 +8,7 @@
     ./modules/networking.nix
     ./modules/packages.nix
     ./modules/ssh.nix
+    ./modules/backup.nix
     ./modules/bluetooth.nix
     ./modules/home-assistant.nix
     ./modules/jellyfin.nix

@@ -46,7 +46,18 @@ rollback:
     sudo nixos-rebuild switch --rollback
 
 status:
-    sudo systemctl status home-assistant.service jellyfin.service nextcloud-setup.service paperless-web.service podman-pihole.service --no-pager || true
+    sudo systemctl status home-assistant.service jellyfin.service nextcloud-setup.service paperless-web.service podman-pihole.service lab-backup.timer --no-pager || true
+
+# Snapshot config + secrets; destination defaults to settings.nix
+backup dest="":
+    sudo lab-backup {{ dest }}
+
+# Restore the newest archive (or the given one) onto this machine
+restore archive="":
+    sudo lab-restore {{ archive }}
+
+# Fresh machine: install, NAS login, restore
+migrate: install nas-credentials restore
 
 # Space used by caches and stored images, then free space on /
 disk:
