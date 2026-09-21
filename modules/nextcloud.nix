@@ -102,6 +102,11 @@ in
     };
   };
 
+  # the mounts are forced to uid=ak gid=lab, dir_mode=0775, so a write from
+  # nextcloud only lands if its user is in the group - chown/chmod do nothing
+  # on cifs
+  users.users.nextcloud.extraGroups = [ settings.group ];
+
   # the module's vhost defaults to :80
   services.nginx.virtualHosts.${host}.listen = [
     {
