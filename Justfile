@@ -68,13 +68,15 @@ disk:
 logs unit:
     sudo journalctl -u "{{ unit }}" -f -n 100
 
-# Copy pre-paperless documents into the consume dir; safe to re-run.
-# Paths from settings.nix (paperless.legacyDir, paperless.dir)
+# Copy pre-paperless documents into the consume dir; safe to re-run
 import-legacy subdir=".":
     #!/usr/bin/env bash
     set -euo pipefail
-    SRC="/mnt/nas/ak/Documents/ManualSorting/{{ subdir }}"
-    DST="/mnt/nas/ak/Documents/Paperless/consume"
+    # settings.nix is a plain attrset, so this reads it without evaluating the
+    # flake - and without a second copy of the paths to keep in sync
+    setting() { nix eval --raw --file "{{ justfile_directory() }}/settings.nix" "paperless.$1"; }
+    SRC="$(setting legacyDir)/{{ subdir }}"
+    DST="$(setting dir)/consume"
     # triggers the NAS automount; fails fast instead of hanging while it sleeps
     timeout 15 ls "$SRC" >/dev/null || { echo "$SRC unreachable" >&2; exit 1; }
     # a copy, not a move: paperless deletes what it consumed, the originals stay

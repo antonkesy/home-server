@@ -63,6 +63,10 @@ in
     description = "create the paperless directories on the NAS share";
     requiredBy = units;
     before = units;
+    # without this the unit runs seconds into boot and triggers a cifs mount
+    # that fails with "Network is unreachable"
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
     # ordering only: RequiresMountsFor would fail the unit outright when the
     # NAS is asleep, which is the one case the retry below exists for
     unitConfig.WantsMountsFor = [ paperless.dir ];
@@ -93,6 +97,16 @@ in
       mkdir -p ${lib.escapeShellArg consume} ${lib.escapeShellArg media}
     '';
   };
+
+  # the module asks for RequiresMountsFor on all three ReadWritePaths, which
+  # makes the scheduler - and through bindsTo the other three units - fail for
+  # good when the boot's first mount attempt loses the race with the network,
+  # since a failed mount job is never retried. paperless-nas-dirs is what
+  # guarantees the share is really there, and it retries; same reasoning as the
+  # "no RequiresMountsFor" note in modules/backup.nix
+  systemd.services.paperless-scheduler.unitConfig.RequiresMountsFor = lib.mkForce [
+    "/var/lib/paperless"
+  ];
 
   # the consumer exits hard when the consume dir is missing; with the module's
   # Restart=on-failure and the default 100ms backoff, a brief NAS outage burns
