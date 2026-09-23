@@ -2,39 +2,46 @@
 # put a lab-backup archive onto a freshly installed machine
 set -euo pipefail
 
-src="${1:-${LAB_BACKUP_DIR:?}}"
+src="${1:-}"
+src="${src:-${LAB_BACKUP_DIR:?}}"
 host="${LAB_HOST:?}"
 
 if [ -d "$src" ]; then
-  archive=$(timeout 15 find "$src" -maxdepth 1 -name "$host-*.tar.zst" | sort | tail -n 1)
+  # fails fast while the NAS sleeps
+  archive=$(timeout 15 find "$src" -maxdepth 1 -name "$host-*.tar.zst" | sort | tail -n 1 || true)
 else
   archive="$src"
 fi
 [ -n "$archive" ] && [ -f "$archive" ] || { echo "no archive at $src" >&2; exit 1; }
 
-echo "restoring $archive"
-tar --zstd -xOf "$archive" manifest
-echo
+# lab-backup's lock; its timer is Persistent and may fire on a fresh boot
+exec 9>/run/lock/lab-backup.lock
+flock -n 9 || { echo "a backup is running" >&2; exit 1; }
+systemctl stop lab-backup.timer
 
 stage=$(mktemp -d /var/tmp/lab-restore.XXXXXX)
-trap 'rm -rf "$stage"' EXIT
-tar --zstd -xf "$archive" -C "$stage" nextcloud.pgdump
+trap 'rm -rf "$stage"; systemctl start lab-backup.timer' EXIT
 
-# the on-demand sockets first, or a client would start a service back up
-# under the extract
+echo "restoring $archive"
+# both sit at the front of the archive
+tar --zstd -xOf "$archive" --occurrence=1 manifest
+echo
+tar --zstd -xf "$archive" -C "$stage" --occurrence=1 nextcloud.pgdump
+
+# sockets first, or a client restarts a service mid-extract
 systemctl stop jellyfin-proxy.socket paperless-proxy.socket nextcloud-proxy.socket \
   home-assistant.service jellyfin.service \
   paperless-scheduler.service paperless-task-queue.service podman-pihole.service \
   nginx.service phpfpm-nextcloud.service nextcloud-cron.timer nextcloud-media-watch.service
 
-# a stale wal from the fresh install would be replayed onto the restored db
+# fresh-install WALs would replay over the restored db
 rm -f /var/lib/paperless/db.sqlite3-{wal,shm,journal} \
   /var/lib/pihole/gravity.db-{wal,shm,journal} \
   /var/lib/jellyfin/data/*.db-{wal,shm,journal}
 
 tar --zstd -xf "$archive" -C / --anchored --exclude=manifest --exclude=nextcloud.pgdump
 
-# nextcloud and jellyfin uids differ between installs
+# uids differ between installs
 chown -R nextcloud:nextcloud /var/lib/nextcloud/config /var/lib/nextcloud/data
 [ -d /var/lib/nextcloud/store-apps ] && chown -R nextcloud:nextcloud /var/lib/nextcloud/store-apps
 chown -R hass:hass /var/lib/hass
@@ -42,8 +49,10 @@ chown -R jellyfin:jellyfin /var/lib/jellyfin
 chown -R paperless:paperless /var/lib/paperless
 chown -R 1000:1000 /var/lib/pihole
 
-secrets=(/var/lib/nextcloud/admin-pass /var/lib/paperless/admin-pass /var/lib/pihole/pihole.env)
-[ -e /var/lib/nas/credentials ] && secrets+=(/var/lib/nas/credentials)
+secrets=()
+for f in /var/lib/nextcloud/admin-pass /var/lib/paperless/admin-pass /var/lib/pihole/pihole.env /var/lib/nas/credentials; do
+  [ -e "$f" ] && secrets+=("$f")
+done
 chown root:root "${secrets[@]}" /etc/ssh/ssh_host_*_key*
 chmod 0600 "${secrets[@]}" /etc/ssh/ssh_host_*_key
 chmod 0644 /etc/ssh/ssh_host_*_key.pub
@@ -59,14 +68,13 @@ systemctl restart sshd.service
 # config.php exists, so this upgrades instead of installing
 systemctl start nextcloud-setup.service
 nextcloud-occ maintenance:data-fingerprint
-# user files are not in the backup; drop their cache rows
-nextcloud-occ files:scan --all
+# user files are not in the backup; drop their cache rows. the NAS shares are scanned in the background
+nextcloud-occ files:scan --all --home-only
 
-# jellyfin, paperless and nextcloud's web side are on demand: the sockets
-# come back, the services start on the next connection
 systemctl start nextcloud-cron.timer \
   nextcloud-external-storage.service nextcloud-media-watch.service \
   home-assistant.service podman-pihole.service \
   jellyfin-proxy.socket paperless-proxy.socket nextcloud-proxy.socket
+systemctl start --no-block nextcloud-media-scan.service
 
 echo "restored; check with: just status && just passwords"

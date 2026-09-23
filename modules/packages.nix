@@ -1,15 +1,15 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   environment.systemPackages = with pkgs; [
     cifs-utils
-    git
     just
+    jq
+    rsync
     neovim
     lazygit
     htop
     duf # disk usage
-    curl
     wget
     dig # DNS routing
   ];

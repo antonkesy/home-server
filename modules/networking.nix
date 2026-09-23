@@ -3,9 +3,8 @@
 {
   networking.hostName = settings.hostName;
 
-  # podman copies this file into the Pi-hole container, where FTL serves it to
-  # the whole LAN - the NixOS default (127.0.0.2 lab) makes every client
-  # resolve `lab` to its own loopback
+  # nixos maps the hostname to 127.0.0.2; podman hands this file to pi-hole,
+  # which would then serve loopback to the whole LAN
   networking.hosts = {
     "127.0.0.2" = lib.mkForce [ ];
     "${settings.lan.address}" = [
@@ -14,8 +13,7 @@
     ];
   };
 
-  # the on-demand backends (settings.onDemand) stay closed on purpose
-  networking.firewall.enable = true;
+  # the on-demand backend ports (settings.onDemand) stay closed on purpose
   networking.firewall.allowedTCPPorts = lib.attrValues settings.ports;
   networking.firewall.allowedUDPPorts = [ settings.ports.dns ];
 }

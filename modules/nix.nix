@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ ... }:
 
 {
   nix.settings.experimental-features = [
@@ -11,15 +11,15 @@
     "@wheel"
   ];
 
+  # sunday jobs, spaced out, ahead of the 05:30 backup
   nix.gc = {
     automatic = true;
-    dates = "weekly";
-    randomizedDelaySec = "45min";
-    persistent = true;
+    dates = "Sun 03:15";
+    randomizedDelaySec = "20min";
     options = "--delete-older-than 30d";
   };
 
   # scheduled, not auto-optimise-store: no per-build cost
   nix.optimise.automatic = true;
-  nix.optimise.dates = [ "weekly" ];
+  nix.optimise.dates = [ "Sun 04:00" ];
 }

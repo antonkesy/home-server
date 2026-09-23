@@ -1,10 +1,20 @@
-# every site-specific value in one place; modules take it as `settings`
+# every site-specific value; modules take it as `settings`
+let
+  nasRoot = "/mnt/nas";
+  # the share paperless, the backups and nextcloud's NAS folder live on
+  home = "${nasRoot}/ak";
+in
 {
   hostName = "lab";
 
   # primary account; owns the NAS mounts
   user = "ak";
   group = "lab";
+
+  git = {
+    name = "Anton Kesy";
+    email = "anton@kesy.de";
+  };
 
   timeZone = "Europe/Berlin";
   locale = "en_US.UTF-8";
@@ -19,8 +29,7 @@
     domain = "fritz.box";
   };
 
-  # public resolvers: Pi-hole upstreams, and the host's own fallback so a dead
-  # container still leaves SSH + rollback working
+  # pi-hole upstreams; also the host's own resolvers (modules/pihole.nix)
   upstreamDns = [
     "1.1.1.1"
     "1.0.0.1"
@@ -36,32 +45,29 @@
       "Shows"
       "ak"
     ];
-    # paperless consumes and stores documents on this one, so it may not idle
-    # out from under a running service; the media shares still do
+    # never idle-unmounted: backup, paperless-nas-dirs and nextcloud write here
     keepMounted = [ "ak" ];
-    mountRoot = "/mnt/nas";
+    mountRoot = nasRoot;
     # written once by `just nas-credentials`
     credentials = "/var/lib/nas/credentials";
   };
 
-  # scanned documents on the `ak` share; Nextcloud shows the tree as
-  # NAS/Documents/Paperless
+  # NAS/Documents/Paperless in Nextcloud
   paperless = {
-    dir = "/mnt/nas/ak/Documents/Paperless";
-    # pre-paperless documents, imported once with `just import-legacy`
-    legacyDir = "/mnt/nas/ak/Documents/Legacy";
-    # cifs reports no remote writes, so the consumer polls instead (seconds)
+    dir = "${home}/Documents/Paperless";
+    # imported once with `just import-legacy`
+    legacyDir = "${home}/Documents/Legacy";
+    # cifs reports no remote writes: the consumer polls (seconds) while paperless is up
     pollInterval = 60;
-    # a file must be this quiet before it is consumed; the 5s default is too
-    # tight for a multi-page scan arriving over SMB
+    # the 5s default is too tight for a multi-page scan over SMB
     stabilityDelay = 30;
   };
 
-  # config + secrets snapshot to the NAS; `just backup`, `just restore`
+  # `just backup`, `just restore`
   backup = {
-    dir = "/mnt/nas/ak/backups/lab";
+    dir = "${home}/backups/lab";
     keep = 8;
-    # after pi-hole's sunday 03:xx gravity run
+    # after pi-hole's sunday 03:xx gravity run and the nix jobs
     onCalendar = "Sun 05:30";
   };
 
@@ -70,22 +76,17 @@
     ssh = 22;
     dns = 53;
     pihole = 4000;
-    # the on-demand proxy; nginx listens on onDemand.nextcloudPort
     nextcloud = 8080;
-    # the on-demand proxy; jellyfin itself listens on onDemand.jellyfinPort
     jellyfin = 8090;
     homeAssistant = 8123;
-    # the on-demand proxy; paperless-web listens on onDemand.paperlessPort
     paperless = 28981;
   };
 
-  # services that stop once nobody has been connected for idleTimeout and come
-  # back on the next connection (modules/on-demand.nix). the backend ports are
-  # deliberately not in `ports`: the firewall keeps them closed, so nothing on
-  # the LAN can reach a backend past the proxy that tracks its use
+  # stopped after idleTimeout, started on connect (modules/on-demand.nix);
+  # these backend ports stay out of `ports`, so the firewall keeps them closed
   onDemand = {
     idleTimeout = "30min";
-    # fixed upstream; the module has no port option
+    # fixed upstream
     jellyfinPort = 8096;
     paperlessPort = 28982;
     nextcloudPort = 8081;

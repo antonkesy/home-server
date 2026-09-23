@@ -45,7 +45,7 @@ in
     restore
   ];
 
-  # `nix build .#nixosConfigurations.lab.config.system.build.lab-backup-scripts`
+  # built by CI, which is what runs shellcheck on the scripts
   system.build.lab-backup-scripts = pkgs.symlinkJoin {
     name = "lab-backup-scripts";
     paths = [
@@ -54,7 +54,7 @@ in
     ];
   };
 
-  # no RequiresMountsFor: the automount's idle unmount would stop the job with it
+  # no RequiresMountsFor: the script triggers the automount and fails cleanly itself
   systemd.services.lab-backup = {
     description = "config and secrets snapshot to the NAS";
     after = [ "network-online.target" ];

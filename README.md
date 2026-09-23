@@ -11,212 +11,112 @@ git clone https://github.com/antonkesy/home-server.git && cd home-server
 just install
 ```
 
-`just install` generates `hardware-configuration.nix`, creates a random
-password for each service that needs one, switches the system, and sets the
-password for user `ak`. It is safe to re-run: existing secrets are kept.
-The NAS login is the one secret that cannot be generated: enter it once with
-`just nas-credentials` after the first switch.
+`just install` switches the system and sets the password for user `ak`.
+Service passwords are generated on the switch (`gen-secrets`) and kept
+across rebuilds. On a new machine run `just hardware` first, or
+`just migrate` (hardware, install, NAS login, restore). The NAS login is the
+one secret that cannot be generated: `just nas-credentials`.
 
 ## Services
 
-| Service        | URL                          | Credentials                    |
-| -------------- | ---------------------------- | ------------------------------ |
-| Home Assistant | `http://lab:8123`            | set up on first visit          |
-| Jellyfin       | `http://lab:8090`            | set up on first visit          |
-| Nextcloud      | `http://lab:8080`            | `/var/lib/nextcloud/admin-pass` (user `root`) |
-| Paperless-ngx  | `http://lab:28981`           | `/var/lib/paperless/admin-pass` (user `admin`) |
-| Pi-hole        | `http://lab:4000/admin`      | `/var/lib/pihole/pihole.env`   |
+| Service        | URL                     | Credentials                                   |
+| -------------- | ----------------------- | --------------------------------------------- |
+| Home Assistant | `http://lab:8123`       | set up on first visit                         |
+| Jellyfin       | `http://lab:8090`       | set up on first visit                         |
+| Nextcloud      | `http://lab:8080`       | `/var/lib/nextcloud/admin-pass` (user `root`) |
+| Paperless-ngx  | `http://lab:28981`      | `/var/lib/paperless/admin-pass` (user `admin`) |
+| Pi-hole        | `http://lab:4000/admin` | `/var/lib/pihole/pihole.env`                  |
 
-Secrets are root-owned `0600` files outside the Nix store and outside git.
-Read one with `sudo cat <path>`, or print them all with `just passwords`.
-
-Nextcloud reads its file once, at first setup - editing it later changes
-nothing. Rotate with `just set-nextcloud-pw`, which resets the password through
-`occ` and rewrites the file so `just passwords` stays true.
+`just passwords` prints them. Nextcloud reads its file at first setup only;
+rotate with `just set-nextcloud-pw`, Pi-hole with `just set-pihole-pw`.
 
 Jellyfin, Paperless and Nextcloud's web side (nginx, php-fpm, imaginary) are
-on demand: they run only while someone is connected and stop 30 minutes after
-the last connection closes (`onDemand.idleTimeout` in `settings.nix`). The
-first request after that pause takes a few seconds while the service comes up;
-the browser simply waits. What that costs: Jellyfin's network auto-discovery
-does not answer while it is off, so clients must be pointed at
-`http://lab:8090` by hand, its scheduled tasks only run while it is up, and a
-scan dropped into the Paperless consume folder waits until someone next opens
-Paperless. Nextcloud is trimmed to file sharing: `nextcloud-disable-apps`
-switches the stock dashboard, activity, photos and similar apps off on every
-boot (the list is in `modules/nextcloud.nix`), and cron runs every 15 minutes
-instead of 5. Its database, cron and NAS watcher stay up, so background jobs
-still run; a desktop or phone sync client polls every few minutes and
-keeps the web side awake for as long as it runs. `just status` shows the
-`.socket` units as the always-on part; an `inactive` `jellyfin.service` or
-`nginx.service` is the idle state, not a failure.
+on demand (`modules/on-demand.nix`): a socket holds the port, the first
+connection starts the service, and 30 minutes after the last connection
+closes it stops again (`onDemand.idleTimeout` in `settings.nix`). The first
+request after a pause waits a few seconds. What that costs:
+
+- Jellyfin's auto-discovery does not answer while it is off; point clients at
+  the URL. Its scheduled tasks only run while it is up.
+- A scan dropped into the Paperless consume folder waits until someone next
+  opens Paperless.
+- A Nextcloud sync client keeps the web side awake for as long as it runs.
 
 ## Day to day
 
-```bash
-just build        # build the closure without activating it
-just update       # stage the current config for the next boot
-just upgrade      # bump nixpkgs, then stage for the next boot
-just rollback     # go back to the previous generation
-just status       # systemctl status of the main services
-just passwords    # print the generated service passwords
-just set-nextcloud-pw     # rotate the Nextcloud admin password
-just set-pihole-pw        # rotate the Pi-hole web password
-just nas-credentials      # enter the NAS SMB login once
-just backup               # snapshot config + secrets to the NAS
-just restore              # put the newest snapshot back onto this machine
-just logs podman-pihole   # follow one unit
-just scan         # index NAS files Nextcloud has not seen yet
-just import-legacy [subdir]   # copy the pre-Paperless documents into consume
-just clean        # garbage-collect
-```
-
-`update` and `upgrade` only build and set the boot default; the running system
-is untouched until `sudo reboot`. `just install` is the only recipe that
-switches live.
-
-Garbage collection also runs weekly on its own (`nix.gc`), keeping 30 days of
-generations, so the store will not quietly fill the disk.
+`just --list` shows every recipe. Three things it cannot tell you:
+`update` and `upgrade` only stage the next boot, `install` is the one recipe
+that switches live, and `clean` drops the generations `rollback` needs.
+Garbage collection also runs on its own every Sunday, keeping 30 days.
 
 ## Backup & restore
 
-`just backup [dir]` writes one `lab-<date>.tar.zst` to `/mnt/nas/ak/backups/lab`
-(or `dir`); `lab-backup.timer` does the same every Sunday morning and keeps the
-last eight (`backup` in `settings.nix`). The archive holds what `just install`
-cannot regenerate:
+`just backup [dir]` writes one `lab-<date>.tar.zst` to
+`/mnt/nas/ak/backups/lab`; `lab-backup.timer` does the same every Sunday
+morning and keeps the last eight (`backup` in `settings.nix`). Inside:
 
-- the generated service passwords, the NAS login, the SSH host keys
-- Nextcloud: `config.php`, installed apps, app data and a full dump of its
-  Postgres database (users, shares, external-storage mounts)
-- Paperless: database and secret key (tags, correspondents, users)
-- Home Assistant: `.storage` (integrations, auth, devices) and yaml
+- the generated passwords, the NAS login, the SSH host keys
+- Nextcloud: `config.php`, installed apps, app data, a Postgres dump
+- Paperless: database and secret key (the search index is rebuilt on start)
+- Home Assistant: `.storage` (integrations, auth, devices)
 - Jellyfin: config, library database, plugins
-- Pi-hole: `pihole.toml`, `gravity.db` (adlists, allow/deny lists), `dnsmasq.d`
+- Pi-hole: `pihole.toml`, `gravity.db`, `dnsmasq.d`
 
-Not in it: Nextcloud user files, NAS media, previews, Jellyfin metadata,
-caches, logs and Home Assistant history. Paperless documents are no longer on
-this list, because they live on the NAS themselves - which also means the
-archive and the backups of its database now sit on the same box, so losing the
-NAS costs both. Jellyfin, Paperless and Pi-hole are stopped for a few seconds
-while the snapshot is taken (Jellyfin and Paperless stay down until the next
-connection); the copy to the NAS is verified byte for byte,
-since a `soft` mount can drop a write.
+Not inside: user files, NAS media, Paperless documents (they live on the
+NAS, so the archive and the documents share one failure domain), previews,
+caches, logs, Home Assistant history. Jellyfin, Paperless and Pi-hole are
+stopped for the duration of the tar, so LAN DNS is briefly gone; the copy to
+the NAS is compared against the staged archive after a sync.
 
-Fresh machine, one command:
-
-```bash
-just migrate      # = install, nas-credentials, restore
-```
-
-`restore` takes the newest archive in the backup dir, or a path
-(`just restore /media/usb/lab-2026-09-21-0530.tar.zst`). It stops the services,
-extracts over `/var/lib`, recreates the Nextcloud database, restarts `sshd` with
-the old host keys and re-runs `nextcloud-setup`, which upgrades instead of
-installing because `config.php` exists. Restore onto the same or a newer nixpkgs
-than the archive was taken with (`manifest` inside the archive says which).
+`just restore [archive]` takes the newest archive in the backup dir, or a
+path. It stops the services, extracts over `/var/lib`, recreates the
+Nextcloud database, restarts `sshd` with the old host keys and re-runs
+`nextcloud-setup`. Restore onto the same or a newer nixpkgs than the archive
+(`manifest` inside says which). The archived NAS login replaces the one
+`just migrate` just asked for.
 
 ## Notes
 
-- **Site settings.** Every value specific to this LAN lives in `settings.nix`:
-  hostname, the server's and the NAS's address, the Fritz!Box subnet and
-  domain, upstream DNS, the NAS shares, every service port, timezone and
-  locale. Change them there; the modules only read them.
-- **Timezone.** Set in `settings.nix` (`Europe/Berlin`). It feeds log
-  timestamps, Paperless document dates and the Pi-hole container clock.
-- **SSH.** Password authentication is still on because no key is deployed. Put
-  a key in `users.users.ak.openssh.authorizedKeys.keys` (`modules/users.nix`),
-  confirm you can log in with it, then set `PasswordAuthentication = false` in
+- **Site settings** live in `settings.nix`: hostname, addresses, ports,
+  shares, timezone, git identity. The modules only read them.
+- **SSH.** Password authentication stays on until a key is in
+  `modules/users.nix`; then set `PasswordAuthentication = false` in
   `modules/ssh.nix`.
-- **Pi-hole.** The container is v6, which removed the v5 environment variables
-  (`WEBPASSWORD`, `PIHOLE_DNS_`, `DNSMASQ_LISTENING`, ...) entirely rather than
-  deprecating them. Settings use the `FTLCONF_<section>_<key>` form; anything
-  passed as an environment variable becomes read-only in the web UI.
-- **LAN names.** `/etc/hosts` (`modules/networking.nix`) maps `lab` and
-  `lab.fritz.box` to the server's address; podman copies that file into the
-  Pi-hole container, so FTL answers those names for the whole network. Change
-  `lan.address` in `settings.nix` if the DHCP lease ever changes. Everything else under
-  `fritz.box`, and reverse lookups for `192.168.178.0/24`, is conditionally
-  forwarded to the Fritz!Box - `fritz.box` is a real public domain, so without
-  that those queries go to the internet and come back NXDOMAIN.
-- **The host does not resolve through Pi-hole.** `networking.nameservers`
-  points at public DNS on purpose, so that a broken container cannot stop you
-  from SSHing in and running `just rollback`.
-- **Nextcloud upgrades** only go one major version at a time. Bump
-  `services.nextcloud.package` to `nextcloud34` only once 33 has finished
-  migrating (`nextcloud-occ status`).
-- **NAS media** (`modules/nas.nix`). The MyCloud at `nas.address` shares
-  the names listed in `nas.shares` over SMB (both in `settings.nix`), all
-  mounted read-write under `/mnt/nas/<name>`. Point a Jellyfin library at the media ones
-  (Dashboard > Libraries > Add Media Library). Nextcloud mounts them as
-  external storage on boot (`nextcloud-external-storage`). The mounts are automounts:
-  nothing happens at boot and the share is mounted on first access, so a
-  sleeping or switched-off NAS cannot stall a rebuild. The media shares are
-  dropped again after 10 minutes idle; the shares listed in `nas.keepMounted`
-  are not, because a service runs off them (see **Paperless** below).
-  `soft` means a read fails instead of hanging if the NAS
-  disappears mid-playback; swap it for `hard` if playback errors turn out to
-  be more annoying than a hung process.
-
-  The login lives in `/var/lib/nas/credentials`, written by
-  `just nas-credentials`; until it has been run, accessing a share fails and
-  nothing else is affected. SMB has no per-user ownership, so everything shows
-  up as `ak:lab` with `0664`/`0775`: `jellyfin` can read, `ak` can write. The
-  NAS account itself needs write access on the shares for `rw` to mean
-  anything - and note `soft` can lose a write on timeout in a way it cannot
-  lose a read.
-- **Paperless** (`modules/paperless.nix`) keeps its documents on the NAS, under
-  `Documents/Paperless` on the `ak` share - `NAS/Documents/Paperless` in
-  Nextcloud, `paperless.dir` in `settings.nix`. Drop a scan into `consume/` by
-  any route (Nextcloud, SMB, a scanner writing to the share) and it is filed
-  within a minute or two; the finished document lands in `media/`. Only the
-  database, the search index and the secret key stay on the SSD, and those are
-  what `just backup` covers.
-
-  cifs reports no remote writes, so the consumer polls `consume/` every
-  `paperless.pollInterval` seconds instead of using inotify, and waits
-  `paperless.stabilityDelay` for a file to stop changing before touching it.
-  Because the documents are on the share, the paperless units depend on the
-  `ak` mount: the share is in `nas.keepMounted` so an idle unmount cannot take
-  them down, and on a fresh machine they stay failed until
-  `just nas-credentials` has run (`just migrate` does them in that order).
-  `paperless-nas-dirs.service` creates `consume/` and `media/` once the share
-  is really mounted - the units are sandboxed and will not start without them.
-
-  `just import-legacy [subdir]` copies the pre-Paperless documents from
-  `paperless.legacyDir` into `consume/`. It copies rather than moves, so the
-  originals survive; anything Paperless cannot parse stays behind in `consume/`
-  along with the emptied subdirectories, and wants sweeping up afterwards.
-
-  The AI features (`PAPERLESS_AI_*`) are off. Turning them on means picking a
-  backend - `ollama` locally, or an OpenAI-compatible API - and for the latter
-  an API key through `services.paperless.environmentFile`.
-- **Jellyfin hardware transcoding** is wired up (Intel QuickSync) but still has
-  to be enabled in Dashboard > Playback > Hardware acceleration.
-- **Formatting** is checked in CI. `hardware-configuration.nix` is committed and
-  formatted along with everything else, so run `nix fmt .` if you ever regenerate
-  it with `nixos-generate-config`.
+- **Pi-hole** is v6: settings use `FTLCONF_<section>_<key>` and are read-only
+  in the web UI. The host itself resolves through public DNS, so a broken
+  container cannot lock you out of `just rollback`.
+- **LAN names.** Pi-hole serves `lab` and `lab.fritz.box` from the server's
+  `/etc/hosts`; everything else under `fritz.box` is forwarded to the router,
+  because `fritz.box` is a real public domain.
+- **Nextcloud** is trimmed to file sharing: `nextcloud-disable-apps` turns
+  the stock dashboard, activity, photos and similar apps off on every boot,
+  cron runs every 15 minutes. Upgrade one major version at a time
+  (`nextcloud35` only once 34 has migrated, see `nextcloud-occ status`).
+- **NAS media** (`modules/nas.nix`): the shares in `nas.shares` are SMB
+  automounts under `/mnt/nas/<name>`, mounted on first access and dropped
+  after 10 idle minutes (except `nas.keepMounted`), so a sleeping NAS never
+  stalls a boot. `soft` means a read fails instead of hanging. Everything
+  shows up as `ak:lab`; `jellyfin` reads, `ak` writes. Point Jellyfin
+  libraries at the media shares; Nextcloud mounts all of them as external
+  storage on boot.
+- **Paperless** keeps its documents on the `ak` share
+  (`paperless.dir`, `NAS/Documents/Paperless` in Nextcloud). Drop a scan
+  into `consume/` by any route; the consumer polls it, because cifs reports
+  no remote writes. On a fresh machine the units stay failed until
+  `just nas-credentials` has run. `just import-legacy [subdir]` copies the
+  pre-Paperless documents in; unparsable files stay behind in `consume/`.
+- **Jellyfin hardware transcoding** (Intel QuickSync) still has to be
+  enabled in Dashboard > Playback.
+- **Formatting** is checked in CI (`nix fmt`), `hardware-configuration.nix`
+  included.
 
 ## Problems & Fixes
 
-### `ssh lab`: Connection refused
-
-`lab` is resolving to a loopback address. Check what Pi-hole answers:
-
-```bash
-dig +short lab @192.168.178.29   # expected: 192.168.178.29
-```
-
-`127.0.0.2` means the container is still serving a stale `/etc/hosts` - restart
-it with `sudo systemctl restart podman-pihole`. If the client is not using
-Pi-hole at all, point its resolver at `192.168.178.29`.
-
-### No DNS on the server
-
-Pi-hole owns port 53. If the container is wedged, `just tmp-dns` writes a
-public resolver into `/etc/resolv.conf` until the next reboot.
-
-### A rebuild left the machine broken
-
-Pick the previous generation from the systemd-boot menu, or `just rollback`
-once you are back in. Ten generations are kept, and the kernel is set to
-reboot 30s after a panic rather than hang.
+- **`ssh lab`: connection refused.** `lab` resolves to loopback. Check
+  `dig +short lab @192.168.178.29`; `127.0.0.2` means Pi-hole serves a stale
+  `/etc/hosts`: `sudo systemctl restart podman-pihole`.
+- **No DNS on the server.** `just tmp-dns` writes a public resolver into
+  `/etc/resolv.conf`.
+- **A rebuild left the machine broken.** Pick the previous generation in the
+  systemd-boot menu, or `just rollback`. Ten generations are kept; the kernel
+  reboots 30 s after a panic.

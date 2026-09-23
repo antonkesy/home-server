@@ -6,14 +6,22 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   eval:
     name: Evaluate configuration
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/nix-installer-action@v23
 
       - name: Check formatting
         run: nix fmt -- --ci
@@ -23,3 +31,9 @@ jobs:
         run: |
           nix eval --raw \
             .#nixosConfigurations.home-server.config.system.build.toplevel.drvPath
+
+      # writeShellApplication runs shellcheck at build time
+      - name: Build the backup scripts
+        run: |
+          nix build --no-link \
+            .#nixosConfigurations.home-server.config.system.build.lab-backup-scripts

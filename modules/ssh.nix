@@ -1,7 +1,6 @@
 { settings, ... }:
 
 {
-  # Run a user ssh-agent managed by NixOS, so SSH_AUTH_SOCK is set automatically.
   programs.ssh = {
     startAgent = true;
     extraConfig = ''
@@ -15,12 +14,10 @@
     ports = [ settings.ports.ssh ];
     settings = {
       PermitRootLogin = "no";
-      # no keys deployed yet; set false once authorizedKeys works
+      # until a key is in modules/users.nix
       PasswordAuthentication = true;
       KbdInteractiveAuthentication = false;
-      X11Forwarding = false;
       MaxAuthTries = 3;
     };
-    openFirewall = true;
   };
 }

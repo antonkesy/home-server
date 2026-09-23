@@ -2,7 +2,8 @@
 # config + secrets snapshot; user files, media and caches stay out
 set -euo pipefail
 
-dest="${1:-${LAB_BACKUP_DIR:?}}"
+dest="${1:-}"
+dest="${dest:-${LAB_BACKUP_DIR:?}}"
 host="${LAB_HOST:?}"
 keep="${LAB_BACKUP_KEEP:?}"
 [ "$keep" -ge 1 ] || { echo "keep must be >= 1" >&2; exit 1; }
@@ -10,28 +11,34 @@ keep="${LAB_BACKUP_KEEP:?}"
 exec 9>/run/lock/lab-backup.lock
 flock -n 9 || { echo "another backup is running" >&2; exit 1; }
 
-# triggers the NAS automount; fails fast instead of hanging while the NAS sleeps
+# triggers the automount; fails fast while the NAS sleeps
 timeout 15 mkdir -p "$dest" || { echo "$dest unreachable" >&2; exit 1; }
 
+# room for the staged archive (KiB)
+[ "$(df --output=avail -k /var/tmp | tail -n 1)" -ge 2097152 ] || { echo "/var/tmp is full" >&2; exit 1; }
+
 stage=$(mktemp -d /var/tmp/lab-backup.XXXXXX)
-# sqlite holders, down only for the copy. the on-demand sockets go with them,
-# or a client could start jellyfin/paperless back up under the running tar
+name="$host-$(date +%Y-%m-%d-%H%M).tar.zst"
+# sqlite holders, down only for the copy; sockets too, or a client restarts them mid-tar
 stopped=(jellyfin-proxy.socket paperless-proxy.socket jellyfin.service paperless-scheduler.service paperless-task-queue.service podman-pihole.service)
-# only the sockets come back: the services are StopWhenUnneeded and start on
-# the next connection - started by hand, systemd would stop them again
+# sockets only: the services are StopWhenUnneeded and start on demand
 restarted=(jellyfin-proxy.socket paperless-proxy.socket podman-pihole.service)
+down=0
 cleanup() {
-  systemctl start "${restarted[@]}" || true
+  [ "$down" = 0 ] || systemctl start "${restarted[@]}" || true
   rm -rf "$stage"
+  rm -f "$dest/$name.part"
 }
 trap cleanup EXIT
 
-runuser -u postgres -- pg_dump -h /run/postgresql -Fc nextcloud > "$stage/nextcloud.pgdump"
+# -Z0: tar compresses it
+runuser -u postgres -- pg_dump -h /run/postgresql -Fc -Z0 --no-sync nextcloud > "$stage/nextcloud.pgdump"
 
 printf 'host=%s\ndate=%s\nnixos=%s\nstateVersion=%s\nnextcloud=%s\npostgresql=%s\n' \
   "$host" "$(date -Is)" "$(cat /run/current-system/nixos-version)" \
   "${LAB_STATE_VERSION:?}" "${LAB_NEXTCLOUD_VERSION:?}" "${LAB_PG_VERSION:?}" > "$stage/manifest"
 
+down=1
 systemctl stop "${stopped[@]}"
 
 cd /
@@ -48,9 +55,9 @@ for p in etc/ssh/ssh_host_*_key etc/ssh/ssh_host_*_key.pub \
   [ -e "$p" ] && include+=("$p")
 done
 
-name="$host-$(date +%Y-%m-%d-%H%M).tar.zst"
 rc=0
-tar --zstd -cf "$stage/$name" --anchored --wildcards \
+# manifest and dump first, so a restore reads them without streaming the rest
+tar --use-compress-program='zstd -T0' -cf "$stage/$name" --anchored --wildcards \
   --exclude='var/lib/nextcloud/config/override.config.php' \
   --exclude='var/lib/nextcloud/data/appdata_*/preview' \
   --exclude='var/lib/hass/home-assistant_v2.db*' \
@@ -70,11 +77,12 @@ tar --zstd -cf "$stage/$name" --anchored --wildcards \
   --exclude='var/lib/pihole/macvendor.db' \
   --exclude='var/lib/pihole/gravity_old.db' \
   --exclude='var/lib/pihole/listsCache' \
-  -C / "${include[@]}" -C "$stage" manifest nextcloud.pgdump || rc=$?
+  -C "$stage" manifest nextcloud.pgdump -C / "${include[@]}" || rc=$?
 # 1: a live home assistant file changed mid-read
 [ "$rc" -le 1 ] || exit "$rc"
 
 systemctl start "${restarted[@]}"
+down=0
 
 cp "$stage/$name" "$dest/$name.part"
 # soft cifs: a dropped write surfaces here, not at cp
@@ -82,5 +90,7 @@ sync -f "$dest"
 cmp "$stage/$name" "$dest/$name.part"
 mv "$dest/$name.part" "$dest/$name"
 
-find "$dest" -maxdepth 1 -name "$host-*.tar.zst" | sort | head -n -"$keep" | xargs -r rm -v --
+# must not fail a finished backup
+{ find "$dest" -maxdepth 1 -name "$host-*.tar.zst" -print0 | sort -z | head -z -n -"$keep" | xargs -0r rm -v --; } ||
+  echo "retention skipped" >&2
 echo "wrote $dest/$name ($(du -h "$dest/$name" | cut -f1))"

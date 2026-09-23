@@ -1,18 +1,22 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
+let
+  users = [
+    "nextcloud-setup.service"
+    "paperless-scheduler.service"
+    "paperless-web.service"
+    "paperless-consumer.service"
+    "paperless-task-queue.service"
+    "podman-pihole.service"
+  ];
+in
 {
-  # generated on switch, not by `just install`: a rebuild must not depend on
-  # having run an imperative recipe first
+  # on switch, not in `just install`: a rebuild must not depend on a recipe
   systemd.services.gen-secrets = {
     wantedBy = [ "multi-user.target" ];
-    before = [
-      "nextcloud-setup.service"
-      "paperless-scheduler.service"
-      "paperless-web.service"
-      "paperless-consumer.service"
-      "paperless-task-queue.service"
-      "podman-pihole.service"
-    ];
+    # requiredBy too: the on-demand units start outside multi-user.target
+    requiredBy = users;
+    before = users;
     path = with pkgs; [ coreutils ];
     serviceConfig = {
       Type = "oneshot";

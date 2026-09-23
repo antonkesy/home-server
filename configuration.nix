@@ -21,22 +21,27 @@
     ./modules/users.nix
   ];
 
-  # also feeds Paperless dates and the Pi-hole container
+  # also Paperless dates and the Pi-hole container
   time.timeZone = settings.timeZone;
   i18n.defaultLocale = settings.locale;
 
-  services.fstrim.enable = true;
+  # sunday, after the nix jobs (modules/nix.nix)
+  services.fstrim.interval = "Sun 04:30";
 
   # no swap partition
   zramSwap.enable = true;
 
-  # don't change
+  # the manual is read elsewhere; building it is rebuild time
+  documentation.nixos.enable = false;
+  documentation.doc.enable = false;
+  documentation.info.enable = false;
+
   system.stateVersion = "24.11";
 
   programs.git.enable = true;
   programs.git.config = {
-    user.name = "Anton Kesy";
-    user.email = "anton@kesy.de";
+    user.name = settings.git.name;
+    user.email = settings.git.email;
     pull.rebase = true;
   };
 }

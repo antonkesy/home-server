@@ -1,18 +1,17 @@
-{ pkgs, settings, ... }:
+{ settings, ... }:
 
 {
   users.groups.${settings.group} = { };
 
   users.users.${settings.user} = {
     isNormalUser = true;
+    # pi-hole's files are owned by this uid
+    uid = 1000;
     extraGroups = [
       "wheel"
       settings.group
-      "networkmanager"
     ];
-    packages = with pkgs; [ ];
-
-    # add a key, verify login, then disable PasswordAuthentication in ssh.nix
+    # add a key, verify login, then PasswordAuthentication = false in ssh.nix
     openssh.authorizedKeys.keys = [ ];
   };
 }
