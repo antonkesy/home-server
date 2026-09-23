@@ -40,8 +40,8 @@ flowchart LR
 ```
 
 The mirror is assembled by homehost and mounted by filesystem label, so no
-disk, UUID or `/dev/mdN` is named anywhere in the repo; `docs/raid1.md` builds
-one from blank disks.
+disk, UUID or `/dev/mdN` is named anywhere in the repo. Building one from
+blank disks is the **Storage** note below.
 
 ### Software
 
@@ -53,15 +53,9 @@ flowchart TD
     ssh["sshd :22"]
     ph["pi-hole in podman<br>:53 DNS, :4000 UI"]
     has["home-assistant :8123"]
-    ncs["nextcloud-proxy.socket :8080"]
-    jfs["jellyfin-proxy.socket :8090"]
-    pls["paperless-proxy.socket :28981"]
-  end
-
-  subgraph demand["on demand - proxyd starts the backend, both stop after 30 min idle"]
-    ncp["nextcloud-proxy"] --> ncb["nginx :8081<br>phpfpm-nextcloud, imaginary"]
-    jfp["jellyfin-proxy"] --> jfb["jellyfin :8096"]
-    plp["paperless-proxy"] --> plb["paperless-scheduler<br>web :28982, consumer, task-queue"]
+    ncb["nginx :8080<br>phpfpm-nextcloud, imaginary"]
+    jfb["jellyfin :8096"]
+    plb["paperless :28981<br>scheduler, web, consumer, task-queue"]
   end
 
   subgraph ssdg["SSD - /var/lib"]
@@ -77,10 +71,7 @@ flowchart TD
   end
 
   client --> ssh & ph & has
-  client --> ncs & jfs & pls
-  ncs --> ncp
-  jfs --> jfp
-  pls --> plp
+  client --> ncb & jfb & plb
   ph --> st
   has --> st
   ncb --> pg & rd
@@ -91,10 +82,11 @@ flowchart TD
   tb["lab-backup.timer<br>Sun 05:30"] --> bak
 ```
 
-The backend ports (8081, 8096, 28982) stay closed in the firewall: the sockets
-are the only way in (`modules/on-demand.nix`). Not drawn are the other
-scheduled jobs - `nix-gc` at 03:15, `nix-optimise` at 04:00 and `fstrim` at
-04:30 on Sundays, `mdraid-scrub` on the first Saturday.
+Everything listens directly; the array is the only thing that idles out, so
+the services on the left of it stay up and the disks on the right go to
+sleep. Not drawn are the jobs that wake them on a schedule - `mdraid-scrub`
+and the Paperless sanity check on the first Saturday, `lab-backup` on Sunday
+- nor `nix-gc`, `nix-optimise` and `fstrim`, which only ever touch the SSD.
 
 ## Install
 
@@ -115,7 +107,7 @@ built into the mirror once by hand; see **Storage** below.
 | Service        | URL                     | Credentials                                   |
 | -------------- | ----------------------- | --------------------------------------------- |
 | Home Assistant | `http://lab:8123`       | set up on first visit                         |
-| Jellyfin       | `http://lab:8090`       | set up on first visit                         |
+| Jellyfin       | `http://lab:8096`       | set up on first visit                         |
 | Nextcloud      | `http://lab:8080`       | `/var/lib/nextcloud/admin-pass` (user `root`) |
 | Paperless-ngx  | `http://lab:28981`      | `/var/lib/paperless/admin-pass` (user `admin`) |
 | Pi-hole        | `http://lab:4000/admin` | `/var/lib/pihole/pihole.env`                  |
@@ -123,17 +115,19 @@ built into the mirror once by hand; see **Storage** below.
 `just passwords` prints them. Nextcloud reads its file at first setup only;
 rotate with `just set-nextcloud-pw`, Pi-hole with `just set-pihole-pw`.
 
-Jellyfin, Paperless and Nextcloud's web side (nginx, php-fpm, imaginary) are
-on demand (`modules/on-demand.nix`): a socket holds the port, the first
-connection starts the service, and 30 minutes after the last connection
-closes it stops again (`onDemand.idleTimeout` in `settings.nix`). The first
-request after a pause waits a few seconds. What that costs:
+Everything runs all the time and answers immediately. The power saving sits
+one level down instead: the two 4 TB disks park after 30 idle minutes
+(`storage.standbyMinutes`), which is worth about 6 W against the ~1 W the
+idle services cost. Only the SSD stays awake, and Pi-hole - the one service
+that runs constantly - lives entirely on it, so DNS never waits for a disk.
 
-- Jellyfin's auto-discovery does not answer while it is off; point clients at
-  the URL. Its scheduled tasks only run while it is up.
-- A scan dropped into the Paperless consume folder waits until someone next
-  opens Paperless.
-- A Nextcloud sync client keeps the web side awake for as long as it runs.
+The first read from a sleeping array waits five to ten seconds for spin-up.
+What wakes the disks: opening Jellyfin, Nextcloud or Paperless; the Sunday
+05:30 backup; the first-Saturday scrub and the Paperless sanity check that
+rides along with it; and any `nixos-rebuild switch` that changes `smartd`,
+because smartd spins both disks up when it starts. Nothing else should -
+`smartd` polls with `-n standby,q` so it skips a parked disk silently, and
+Nextcloud's `files_no_background_scan` stops cron from walking the array.
 
 ## Day to day
 
@@ -204,9 +198,13 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   `storage-dirs` re-asserts `ak:lab` and `2775` on every boot, plus a
   default ACL, which is what makes the creating process's umask irrelevant
   and lets `nextcloud`, `paperless` and `ak` write each other's files.
-  Unlike the NAS this replaced, the disks spin around the clock. Point
-  Jellyfin libraries at `/mnt/storage/{Movies,Music,Shows}`; Nextcloud
-  mounts everything but `backups/` as external storage on boot.
+  A udev rule sets a 30-minute ATA standby timer on whichever devices carry
+  the RAID superblock, so no serial is hardcoded and it survives the
+  enclosure re-enumerating; a USB bridge that rejects the command is ignored,
+  and the enclosure's own idle timer is then what matters. `just storage`
+  prints the power state. Point Jellyfin libraries at
+  `/mnt/storage/{Movies,Music,Shows}`; Nextcloud mounts everything but
+  `backups/` as external storage on boot.
 - **Paperless** keeps its documents in `/mnt/storage/Documents/Paperless`
   (`paperless.dir`, `Documents/Paperless` in Nextcloud). Drop a scan into
   `consume/` by any route and inotify picks it up.
@@ -214,6 +212,12 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   unparsable files stay behind in `consume/`.
 - **Jellyfin hardware transcoding** (Intel QuickSync) still has to be
   enabled in Dashboard > Playback.
+- **Jellyfin's scheduled tasks are the one thing this repo cannot set.** They
+  live in the service's own data dir, not in nixpkgs. Leave them running and
+  the library scan wakes the array twice a day for nothing, so turn the
+  periodic trigger off under Dashboard > Scheduled Tasks and scan by hand
+  after adding media. The same dashboard owns the listen port, which is why
+  `ports.jellyfin` only describes what is already in `network.xml`.
 - **Formatting** is checked in CI (`nix fmt`), `hardware-configuration.nix`
   included.
 

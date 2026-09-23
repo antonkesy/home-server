@@ -14,7 +14,6 @@
     ./modules/home-assistant.nix
     ./modules/jellyfin.nix
     ./modules/nextcloud.nix
-    ./modules/on-demand.nix
     ./modules/pihole.nix
     ./modules/paperless.nix
     ./modules/secrets.nix
@@ -30,6 +29,11 @@
 
   # no swap partition
   zramSwap.enable = true;
+
+  # the intel_pstate default; stated rather than assumed. deliberately not
+  # powerManagement.powertop.enable: --auto-tune turns on usb autosuspend,
+  # which makes an external disk enclosure throw i/o errors
+  powerManagement.cpuFreqGovernor = "powersave";
 
   # the manual is read elsewhere; building it is rebuild time
   documentation.nixos.enable = false;

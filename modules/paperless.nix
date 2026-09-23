@@ -21,8 +21,9 @@ in
 {
   services.paperless = {
     enable = true;
-    # loopback only; the on-demand proxy is the way in (modules/on-demand.nix)
-    port = settings.onDemand.paperlessPort;
+    # upstream binds 127.0.0.1 only
+    address = "0.0.0.0";
+    port = settings.ports.paperless;
     # from gen-secrets
     passwordFile = "/var/lib/paperless/admin-pass";
     # dataDir stays on the SSD: database, index and secret key have no business on the array
@@ -32,6 +33,12 @@ in
       PAPERLESS_OCR_LANGUAGE = settings.ocrLanguages;
       # subfolders (and the `just import-legacy` tree) are ignored otherwise
       PAPERLESS_CONSUMER_RECURSIVE = true;
+      # upstream: every sunday. it checksums every file on the array, so it
+      # runs with the scrub instead, on the one night the disks are up anyway.
+      # celery ANDs day-of-month with day-of-week: first saturday
+      PAPERLESS_SANITY_TASK_CRON = "30 4 1-7 * 6";
+      # upstream polls every 10 minutes; no mail accounts are configured
+      PAPERLESS_EMAIL_TASK_CRON = "disable";
     };
   };
 

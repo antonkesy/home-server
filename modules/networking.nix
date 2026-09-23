@@ -13,7 +13,8 @@
     ];
   };
 
-  # the on-demand backend ports (settings.onDemand) stay closed on purpose
+  # every port a service listens on is in settings.ports; jellyfin.nix adds
+  # its two discovery ports to the UDP list
   networking.firewall.allowedTCPPorts = lib.attrValues settings.ports;
   networking.firewall.allowedUDPPorts = [ settings.ports.dns ];
 }

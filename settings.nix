@@ -38,6 +38,8 @@ in
     root = storageRoot;
     # the array is found by filesystem label, not by uuid
     label = "storage";
+    # hdparm's 30-minute units: 241 = 30 min. multiples of 30, up to 330
+    standbyMinutes = 30;
     # created by modules/storage.nix as user:group, setgid and group-writable
     dirs = [
       "Movies"
@@ -94,18 +96,9 @@ in
     dns = 53;
     pihole = 4000;
     nextcloud = 8080;
-    jellyfin = 8090;
+    # jellyfin reads its port from its own network.xml; 8096 is that default
+    jellyfin = 8096;
     homeAssistant = 8123;
     paperless = 28981;
-  };
-
-  # stopped after idleTimeout, started on connect (modules/on-demand.nix);
-  # these backend ports stay out of `ports`, so the firewall keeps them closed
-  onDemand = {
-    idleTimeout = "30min";
-    # fixed upstream
-    jellyfinPort = 8096;
-    paperlessPort = 28982;
-    nextcloudPort = 8081;
   };
 }

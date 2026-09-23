@@ -27,9 +27,7 @@ tar --zstd -xOf "$archive" --occurrence=1 manifest
 echo
 tar --zstd -xf "$archive" -C "$stage" --occurrence=1 nextcloud.pgdump
 
-# sockets first, or a client restarts a service mid-extract
-systemctl stop jellyfin-proxy.socket paperless-proxy.socket nextcloud-proxy.socket \
-  home-assistant.service jellyfin.service \
+systemctl stop home-assistant.service jellyfin.service \
   paperless-scheduler.service paperless-task-queue.service podman-pihole.service \
   nginx.service phpfpm-nextcloud.service nextcloud-cron.timer nextcloud-media-watch.service
 
@@ -73,7 +71,7 @@ nextcloud-occ files:scan --all --home-only
 systemctl start nextcloud-cron.timer \
   nextcloud-external-storage.service nextcloud-media-watch.service \
   home-assistant.service podman-pihole.service \
-  jellyfin-proxy.socket paperless-proxy.socket nextcloud-proxy.socket
+  jellyfin.service paperless-scheduler.service nginx.service phpfpm-nextcloud.service
 systemctl start --no-block nextcloud-media-scan.service
 
 echo "restored; check with: just status && just passwords"

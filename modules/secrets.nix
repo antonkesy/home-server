@@ -14,7 +14,7 @@ in
   # on switch, not in `just install`: a rebuild must not depend on a recipe
   systemd.services.gen-secrets = {
     wantedBy = [ "multi-user.target" ];
-    # requiredBy too: the on-demand units start outside multi-user.target
+    # requiredBy too: these start before multi-user.target is reached
     requiredBy = users;
     before = users;
     path = with pkgs; [ coreutils ];

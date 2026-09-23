@@ -53,6 +53,11 @@ in
       # without the port, links point at :80
       overwritehost = "${host}:${toString port}";
       default_phone_region = settings.phoneRegion;
+      # cron would otherwise walk the external storages every 15 minutes and
+      # keep the disks awake; nextcloud-media-watch sees real changes already
+      files_no_background_scan = true;
+      # UTC hour for the heavy daily jobs
+      maintenance_window_start = 4;
       # the module adds hostName
       trusted_domains = [
         "localhost"
@@ -99,11 +104,11 @@ in
   # the array is group-writable by setgid + default ACL (modules/storage.nix)
   users.users.nextcloud.extraGroups = [ settings.group ];
 
-  # upstream: :80. only the on-demand proxy talks to it (modules/on-demand.nix)
+  # upstream: :80, which would not match overwritehost
   services.nginx.virtualHosts.${host}.listen = [
     {
-      addr = "127.0.0.1";
-      port = settings.onDemand.nextcloudPort;
+      addr = "0.0.0.0";
+      port = port;
     }
   ];
 

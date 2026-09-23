@@ -18,10 +18,9 @@ mkdir -p "$dest" || { echo "$dest unreachable" >&2; exit 1; }
 
 stage=$(mktemp -d /var/tmp/lab-backup.XXXXXX)
 name="$host-$(date +%Y-%m-%d-%H%M).tar.zst"
-# sqlite holders, down only for the copy; sockets too, or a client restarts them mid-tar
-stopped=(jellyfin-proxy.socket paperless-proxy.socket jellyfin.service paperless-scheduler.service paperless-task-queue.service podman-pihole.service)
-# sockets only: the services are StopWhenUnneeded and start on demand
-restarted=(jellyfin-proxy.socket paperless-proxy.socket podman-pihole.service)
+# sqlite holders, down only for the copy
+stopped=(jellyfin.service paperless-scheduler.service paperless-task-queue.service podman-pihole.service)
+restarted=("${stopped[@]}")
 down=0
 cleanup() {
   [ "$down" = 0 ] || systemctl start "${restarted[@]}" || true

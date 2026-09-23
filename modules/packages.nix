@@ -10,6 +10,7 @@
     htop
     duf # disk usage
     gptfdisk # sgdisk;
+    hdparm # disk power state
     wget
     dig # DNS routing
   ];

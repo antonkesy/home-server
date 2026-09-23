@@ -19,6 +19,15 @@ let
     "lab-backup.service"
   ];
 
+  # hdparm -S: 1..240 are 5-second units, 241..251 are 30-minute ones
+  standbyValue = 240 + storage.standbyMinutes / 30;
+
+  standby = pkgs.writeShellScript "disk-standby" ''
+    # a USB bridge often rejects the ATA standby timer; the enclosure's own
+    # idle timer is then what matters, so this must not fail the udev event
+    ${lib.getExe pkgs.hdparm} -S ${toString standbyValue} "$1" || true
+  '';
+
   # mdmon crashes without a MAILADDR or PROGRAM; there is no MTA here
   alert = pkgs.writeShellScript "mdadm-alert" ''
     exec ${lib.getExe' pkgs.systemd "systemd-cat"} -t mdadm -p warning \
@@ -26,6 +35,21 @@ let
   '';
 in
 {
+  assertions = [
+    {
+      assertion =
+        storage.standbyMinutes >= 30
+        && storage.standbyMinutes <= 330
+        && lib.mod storage.standbyMinutes 30 == 0;
+      message = "storage.standbyMinutes must be a multiple of 30, from 30 to 330";
+    }
+  ];
+
+  # by member, not by serial: re-applied whenever the enclosure re-enumerates
+  services.udev.extraRules = ''
+    ACTION=="add|change", SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="linux_raid_member", RUN+="${standby} /dev/%k"
+  '';
+
   # assembles by homehost, so no ARRAY line: the array is named `lab:storage`
   boot.swraid.enable = true;
   boot.swraid.mdadmConf = ''
@@ -49,7 +73,7 @@ in
   systemd.services.storage-dirs = {
     description = "create the shared directories on the storage array";
     wantedBy = [ "multi-user.target" ];
-    # requiredBy too: the on-demand units start outside multi-user.target
+    # requiredBy too: a consumer pulled in by something else still needs the tree
     requiredBy = consumers;
     before = consumers;
     unitConfig.RequiresMountsFor = [ storage.root ];
@@ -102,5 +126,11 @@ in
   services.smartd = {
     enable = true;
     autodetect = true;
+    # -n standby,q: only check a disk that is already spinning, and stay quiet
+    # about the skip, because the log line alone would wake it. replaces the
+    # `-a` default, so that has to be repeated. autodetected inherits this
+    defaults.monitored = "-a -n standby,q";
+    # upstream polls every 1800s and there is no option for it
+    extraOptions = [ "--interval=7200" ];
   };
 }

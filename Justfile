@@ -37,9 +37,9 @@ upgrade: && update
 rollback:
     sudo nixos-rebuild switch --rollback
 
-# Unit status; an inactive service behind an active .socket is idle, not broken
+# Unit status
 status:
-    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin-proxy.socket jellyfin.service nextcloud-proxy.socket nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-proxy.socket paperless-storage-dirs.service paperless-web.service paperless-consumer.service podman-pihole.service pihole-domains.service lab-backup.timer || true
+    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service podman-pihole.service pihole-domains.service lab-backup.timer || true
 
 # Snapshot config + secrets; destination defaults to settings.nix
 backup dest="":
@@ -57,10 +57,12 @@ disk:
     df -h / /mnt/storage
     sudo du -shxc /var/lib/nextcloud/data /var/cache/jellyfin /var/lib/jellyfin/metadata /var/lib/paperless /var/lib/hass /var/lib/pihole /var/lib/redis-nextcloud /var/lib/redis-paperless /var/lib/containers/storage 2>/dev/null || true
 
-# Mirror health; "clean" is good, "degraded" needs a disk
+# Mirror health and disk power state; "clean" is good, "degraded" needs a disk
 storage:
     cat /proc/mdstat
     sudo mdadm --detail /dev/md/storage
+    # standby = spun down, active/idle = spinning
+    sudo hdparm -C /dev/sda /dev/sdb || true
 
 # Follow one unit, e.g. `just logs podman-pihole`
 logs unit:
