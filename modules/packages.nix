@@ -9,6 +9,7 @@
     lazygit
     htop
     duf # disk usage
+    gptfdisk # sgdisk;
     wget
     dig # DNS routing
   ];
