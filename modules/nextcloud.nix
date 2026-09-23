@@ -119,6 +119,35 @@ in
   systemd.services.phpfpm-nextcloud.path = previewTools;
   systemd.services.nextcloud-cron.path = previewTools;
 
+  # the instance is a file share, nothing else; the stock apps below only add
+  # background jobs, database churn and UI. app state lives in the database,
+  # so it is reasserted on every boot like the external mounts. kept: files,
+  # sharing, external storage, trashbin, versions, viewer, notifications,
+  # share by mail, text, and everything nextcloud refuses to disable
+  systemd.services.nextcloud-disable-apps = {
+    wantedBy = [ "multi-user.target" ];
+    after = [ "nextcloud-setup.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      User = "nextcloud";
+      ExecCondition = "${occ} status --exit-code";
+    };
+    script = ''
+      set -euo pipefail
+
+      # apps that are already off or not installed are reported, not failed
+      ${occ} app:disable \
+        activity app_api circles comments contactsinteraction dashboard \
+        federation files_reminders firstrunwizard nextcloud_announcements \
+        photos recommendations related_resources support survey_client \
+        systemtags user_status weather_status
+    '';
+  };
+
+  # the module runs cron.php every 5 min; share expiry and trashbin cleanup
+  # do not need to be that punctual
+  systemd.timers.nextcloud-cron.timerConfig.OnUnitActiveSec = lib.mkForce "15m";
+
   # external mounts live in the database, so they are reconciled on every boot
   systemd.services.nextcloud-external-storage = {
     wantedBy = [ "multi-user.target" ];

@@ -42,8 +42,11 @@ the browser simply waits. What that costs: Jellyfin's network auto-discovery
 does not answer while it is off, so clients must be pointed at
 `http://lab:8090` by hand, its scheduled tasks only run while it is up, and a
 scan dropped into the Paperless consume folder waits until someone next opens
-Paperless. Nextcloud's database, cron and NAS watcher stay up, so background
-jobs still run; a desktop or phone sync client polls every few minutes and
+Paperless. Nextcloud is trimmed to file sharing: `nextcloud-disable-apps`
+switches the stock dashboard, activity, photos and similar apps off on every
+boot (the list is in `modules/nextcloud.nix`), and cron runs every 15 minutes
+instead of 5. Its database, cron and NAS watcher stay up, so background jobs
+still run; a desktop or phone sync client polls every few minutes and
 keeps the web side awake for as long as it runs. `just status` shows the
 `.socket` units as the always-on part; an `inactive` `jellyfin.service` or
 `nginx.service` is the idle state, not a failure.
