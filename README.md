@@ -1,5 +1,7 @@
 # Home Server - NixOS Configuration
 
+[![check](https://github.com/antonkesy/home-server/actions/workflows/check.yml/badge.svg)](https://github.com/antonkesy/home-server/actions/workflows/check.yml)
+
 Home server (`lab`) running Home Assistant, Jellyfin, Nextcloud, Paperless-ngx
 and Pi-hole, built from a flake.
 
