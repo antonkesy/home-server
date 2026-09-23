@@ -71,6 +71,29 @@ in
     onCalendar = "Sun 05:30";
   };
 
+  # pi-hole domain lists, applied on every boot (modules/pihole.nix);
+  # an entry removed here stays until deleted in the web UI
+  pihole.domains = [
+    {
+      type = "allow";
+      kind = "regex";
+      domain = "(\\.|^)video-stats\\.l\\.google\\.com$";
+      comment = "ReVanced YT History";
+    }
+    {
+      type = "allow";
+      kind = "regex";
+      domain = "(\\.|^)s\\.youtube\\.com$";
+      comment = "ReVanced YT History";
+    }
+    {
+      type = "deny";
+      kind = "regex";
+      domain = "(\\.|^)instagram\\.com$";
+      comment = "";
+    }
+  ];
+
   # all opened in the firewall
   ports = {
     ssh = 22;

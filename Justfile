@@ -39,7 +39,7 @@ rollback:
 
 # Unit status; an inactive service behind an active .socket is idle, not broken
 status:
-    sudo systemctl status --no-pager -n 0 gen-secrets.service home-assistant.service jellyfin-proxy.socket jellyfin.service nextcloud-proxy.socket nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-proxy.socket paperless-nas-dirs.service paperless-web.service paperless-consumer.service podman-pihole.service lab-backup.timer || true
+    sudo systemctl status --no-pager -n 0 gen-secrets.service home-assistant.service jellyfin-proxy.socket jellyfin.service nextcloud-proxy.socket nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-proxy.socket paperless-nas-dirs.service paperless-web.service paperless-consumer.service podman-pihole.service pihole-domains.service lab-backup.timer || true
 
 # Snapshot config + secrets; destination defaults to settings.nix
 backup dest="":

@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   settings,
   ...
 }:
@@ -9,6 +10,7 @@ let
   stateDir = "/var/lib/pihole";
   inherit (settings) lan ports upstreamDns;
   uid = toString config.users.users.${settings.user}.uid;
+  domains = pkgs.writeText "pihole-domains.json" (builtins.toJSON settings.pihole.domains);
 in
 {
   virtualisation.podman.enable = true;
@@ -58,4 +60,40 @@ in
 
   # the container copies /etc/hosts at start
   systemd.services.podman-pihole.restartTriggers = [ config.environment.etc.hosts.source ];
+
+  # domain lists live in gravity.db; added through the API, existing ones skipped
+  systemd.services.pihole-domains = {
+    wantedBy = [ "multi-user.target" ];
+    requires = [ "podman-pihole.service" ];
+    after = [ "podman-pihole.service" ];
+    restartTriggers = [ domains ];
+    path = with pkgs; [
+      coreutils
+      curl
+      jq
+    ];
+    serviceConfig.Type = "oneshot";
+    script = ''
+      set -euo pipefail
+      api=http://127.0.0.1:${toString ports.pihole}/api
+
+      # FTL needs a moment after the container is up
+      curl -s --retry 30 --retry-delay 2 --retry-all-errors -o /dev/null "$api/auth"
+
+      pw=$(cut -d= -f2- ${stateDir}/pihole.env)
+      sid=$(curl -sf -X POST -H 'content-type: application/json' \
+        --data "$(jq -n --arg p "$pw" '{password: $p}')" "$api/auth" | jq -r .session.sid)
+      trap 'curl -sf -X DELETE -H "sid: $sid" "$api/auth" >/dev/null || true' EXIT
+
+      have=$(curl -sf -H "sid: $sid" "$api/domains" | jq -c '[.domains[] | {domain, type, kind}]')
+      jq -c '.[]' ${domains} | while read -r entry; do
+        jq -e --argjson e "$entry" \
+          'any(.domain == $e.domain and .type == $e.type and .kind == $e.kind)' <<<"$have" >/dev/null && continue
+        curl -sf -X POST -H "sid: $sid" -H 'content-type: application/json' \
+          --data "$(jq -c '{domain, comment, groups: [0], enabled: true}' <<<"$entry")" \
+          "$api/domains/$(jq -r .type <<<"$entry")/$(jq -r .kind <<<"$entry")" >/dev/null
+        echo "added $(jq -r '"\(.type)/\(.kind) \(.domain)"' <<<"$entry")"
+      done
+    '';
+  };
 }

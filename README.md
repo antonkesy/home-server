@@ -83,7 +83,9 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   `modules/users.nix`; then set `PasswordAuthentication = false` in
   `modules/ssh.nix`.
 - **Pi-hole** is v6: settings use `FTLCONF_<section>_<key>` and are read-only
-  in the web UI. The host itself resolves through public DNS, so a broken
+  in the web UI. Allow/deny entries are listed in `settings.nix`
+  (`pihole.domains`) and added on every boot; deleting one there does not
+  remove it from Pi-hole. The host itself resolves through public DNS, so a broken
   container cannot lock you out of `just rollback`.
 - **LAN names.** Pi-hole serves `lab` and `lab.fritz.box` from the server's
   `/etc/hosts`; everything else under `fritz.box` is forwarded to the router,
