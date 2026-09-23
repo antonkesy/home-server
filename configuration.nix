@@ -14,6 +14,7 @@
     ./modules/jellyfin.nix
     ./modules/nas.nix
     ./modules/nextcloud.nix
+    ./modules/on-demand.nix
     ./modules/pihole.nix
     ./modules/paperless.nix
     ./modules/secrets.nix

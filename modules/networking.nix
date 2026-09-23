@@ -14,7 +14,7 @@
     ];
   };
 
-  # jellyfin's openFirewall also opens 8920/tcp and 1900+7359/udp
+  # the on-demand backends (settings.onDemand) stay closed on purpose
   networking.firewall.enable = true;
   networking.firewall.allowedTCPPorts = lib.attrValues settings.ports;
   networking.firewall.allowedUDPPorts = [ settings.ports.dns ];

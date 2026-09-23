@@ -65,14 +65,27 @@
     onCalendar = "Sun 05:30";
   };
 
-  # all opened in the firewall; jellyfin's is fixed upstream
+  # all opened in the firewall
   ports = {
     ssh = 22;
     dns = 53;
     pihole = 4000;
     nextcloud = 8080;
-    jellyfin = 8096;
+    # the on-demand proxy; jellyfin itself listens on onDemand.jellyfinPort
+    jellyfin = 8090;
     homeAssistant = 8123;
+    # the on-demand proxy; paperless-web listens on onDemand.paperlessPort
     paperless = 28981;
+  };
+
+  # services that stop once nobody has been connected for idleTimeout and come
+  # back on the next connection (modules/on-demand.nix). the backend ports are
+  # deliberately not in `ports`: the firewall keeps them closed, so nothing on
+  # the LAN can reach a backend past the proxy that tracks its use
+  onDemand = {
+    idleTimeout = "30min";
+    # fixed upstream; the module has no port option
+    jellyfinPort = 8096;
+    paperlessPort = 28982;
   };
 }

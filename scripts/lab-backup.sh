@@ -14,10 +14,14 @@ flock -n 9 || { echo "another backup is running" >&2; exit 1; }
 timeout 15 mkdir -p "$dest" || { echo "$dest unreachable" >&2; exit 1; }
 
 stage=$(mktemp -d /var/tmp/lab-backup.XXXXXX)
-# sqlite holders, down only for the copy
-stopped=(jellyfin.service paperless-scheduler.service paperless-task-queue.service podman-pihole.service)
+# sqlite holders, down only for the copy. the on-demand sockets go with them,
+# or a client could start jellyfin/paperless back up under the running tar
+stopped=(jellyfin-proxy.socket paperless-proxy.socket jellyfin.service paperless-scheduler.service paperless-task-queue.service podman-pihole.service)
+# only the sockets come back: the services are StopWhenUnneeded and start on
+# the next connection - started by hand, systemd would stop them again
+restarted=(jellyfin-proxy.socket paperless-proxy.socket podman-pihole.service)
 cleanup() {
-  systemctl start "${stopped[@]}" || true
+  systemctl start "${restarted[@]}" || true
   rm -rf "$stage"
 }
 trap cleanup EXIT
@@ -70,7 +74,7 @@ tar --zstd -cf "$stage/$name" --anchored --wildcards \
 # 1: a live home assistant file changed mid-read
 [ "$rc" -le 1 ] || exit "$rc"
 
-systemctl start "${stopped[@]}"
+systemctl start "${restarted[@]}"
 
 cp "$stage/$name" "$dest/$name.part"
 # soft cifs: a dropped write surfaces here, not at cp

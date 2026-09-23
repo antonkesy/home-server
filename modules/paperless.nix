@@ -21,8 +21,9 @@ in
 {
   services.paperless = {
     enable = true;
-    address = "0.0.0.0";
-    port = settings.ports.paperless;
+    # only the on-demand proxy talks to it (modules/on-demand.nix)
+    address = "127.0.0.1";
+    port = settings.onDemand.paperlessPort;
     # from `just install`
     passwordFile = "/var/lib/paperless/admin-pass";
     # the documents live on the NAS; dataDir stays on the SSD - the database,

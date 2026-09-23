@@ -22,7 +22,7 @@ The NAS login is the one secret that cannot be generated: enter it once with
 | Service        | URL                          | Credentials                    |
 | -------------- | ---------------------------- | ------------------------------ |
 | Home Assistant | `http://lab:8123`            | set up on first visit          |
-| Jellyfin       | `http://lab:8096`            | set up on first visit          |
+| Jellyfin       | `http://lab:8090`            | set up on first visit          |
 | Nextcloud      | `http://lab:8080`            | `/var/lib/nextcloud/admin-pass` (user `root`) |
 | Paperless-ngx  | `http://lab:28981`           | `/var/lib/paperless/admin-pass` (user `admin`) |
 | Pi-hole        | `http://lab:4000/admin`      | `/var/lib/pihole/pihole.env`   |
@@ -33,6 +33,17 @@ Read one with `sudo cat <path>`, or print them all with `just passwords`.
 Nextcloud reads its file once, at first setup - editing it later changes
 nothing. Rotate with `just set-nextcloud-pw`, which resets the password through
 `occ` and rewrites the file so `just passwords` stays true.
+
+Jellyfin and Paperless are on demand: they run only while someone is
+connected and stop 30 minutes after the last connection closes
+(`onDemand.idleTimeout` in `settings.nix`). The first request after that pause
+takes a few seconds while the service comes up; the browser simply waits.
+What that costs: Jellyfin's network auto-discovery does not answer while it is
+off, so clients must be pointed at `http://lab:8090` by hand, its scheduled
+tasks only run while it is up, and a scan dropped into the Paperless consume
+folder waits until someone next opens Paperless. `just status` shows the two
+`.socket` units as the always-on part; an `inactive` `jellyfin.service` is the
+idle state, not a failure.
 
 ## Day to day
 
@@ -81,7 +92,8 @@ caches, logs and Home Assistant history. Paperless documents are no longer on
 this list, because they live on the NAS themselves - which also means the
 archive and the backups of its database now sit on the same box, so losing the
 NAS costs both. Jellyfin, Paperless and Pi-hole are stopped for a few seconds
-while the snapshot is taken; the copy to the NAS is verified byte for byte,
+while the snapshot is taken (Jellyfin and Paperless stay down until the next
+connection); the copy to the NAS is verified byte for byte,
 since a `soft` mount can drop a write.
 
 Fresh machine, one command:
