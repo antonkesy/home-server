@@ -14,8 +14,8 @@ just install
 `just install` switches the system and sets the password for user `ak`.
 Service passwords are generated on the switch (`gen-secrets`) and kept
 across rebuilds. On a new machine run `just hardware` first, or
-`just migrate` (hardware, install, NAS login, restore). The NAS login is the
-one secret that cannot be generated: `just nas-credentials`.
+`just migrate` (hardware, install, restore). The two data disks have to be
+built into the mirror once by hand; see **Storage** below.
 
 ## Services
 
@@ -52,33 +52,35 @@ Garbage collection also runs on its own every Sunday, keeping 30 days.
 ## Backup & restore
 
 `just backup [dir]` writes one `lab-<date>.tar.zst` to
-`/mnt/nas/ak/backups/lab`; `lab-backup.timer` does the same every Sunday
+`/mnt/storage/backups/lab`; `lab-backup.timer` does the same every Sunday
 morning and keeps the last eight (`backup` in `settings.nix`). Inside:
 
-- the generated passwords, the NAS login, the SSH host keys
+- the generated passwords, the SSH host keys
 - Nextcloud: `config.php`, installed apps, app data, a Postgres dump
 - Paperless: database and secret key (the search index is rebuilt on start)
 - Home Assistant: `.storage` (integrations, auth, devices)
 - Jellyfin: config, library database, plugins
 - Pi-hole: `pihole.toml`, `gravity.db`, `dnsmasq.d`
 
-Not inside: user files, NAS media, Paperless documents (they live on the
-NAS, so the archive and the documents share one failure domain), previews,
-caches, logs, Home Assistant history. Jellyfin, Paperless and Pi-hole are
-stopped for the duration of the tar, so LAN DNS is briefly gone; the copy to
-the NAS is compared against the staged archive after a sync.
+Not inside: user files, media, Paperless documents, previews, caches, logs,
+Home Assistant history. The mirror is what covers those, and it only covers
+one disk dying - the archive now sits on the same machine as the state it
+backs up, so fire, theft or a dead PSU takes both. `just backup /run/media/...`
+onto an external disk now and then is the only thing that does not.
+Jellyfin, Paperless and Pi-hole are stopped for the duration of the tar, so
+LAN DNS is briefly gone; the copy is compared against the staged archive
+after a sync.
 
 `just restore [archive]` takes the newest archive in the backup dir, or a
 path. It stops the services, extracts over `/var/lib`, recreates the
 Nextcloud database, restarts `sshd` with the old host keys and re-runs
 `nextcloud-setup`. Restore onto the same or a newer nixpkgs than the archive
-(`manifest` inside says which). The archived NAS login replaces the one
-`just migrate` just asked for.
+(`manifest` inside says which).
 
 ## Notes
 
 - **Site settings** live in `settings.nix`: hostname, addresses, ports,
-  shares, timezone, git identity. The modules only read them.
+  storage directories, timezone, git identity. The modules only read them.
 - **SSH.** Password authentication stays on until a key is in
   `modules/users.nix`; then set `PasswordAuthentication = false` in
   `modules/ssh.nix`.
@@ -94,19 +96,29 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   the stock dashboard, activity, photos and similar apps off on every boot,
   cron runs every 15 minutes. Upgrade one major version at a time
   (`nextcloud35` only once 34 has migrated, see `nextcloud-occ status`).
-- **NAS media** (`modules/nas.nix`): the shares in `nas.shares` are SMB
-  automounts under `/mnt/nas/<name>`, mounted on first access and dropped
-  after 10 idle minutes (except `nas.keepMounted`), so a sleeping NAS never
-  stalls a boot. `soft` means a read fails instead of hanging. Everything
-  shows up as `ak:lab`; `jellyfin` reads, `ak` writes. Point Jellyfin
-  libraries at the media shares; Nextcloud mounts all of them as external
-  storage on boot.
-- **Paperless** keeps its documents on the `ak` share
-  (`paperless.dir`, `NAS/Documents/Paperless` in Nextcloud). Drop a scan
-  into `consume/` by any route; the consumer polls it, because cifs reports
-  no remote writes. On a fresh machine the units stay failed until
-  `just nas-credentials` has run. `just import-legacy [subdir]` copies the
-  pre-Paperless documents in; unparsable files stay behind in `consume/`.
+- **Storage** (`modules/storage.nix`): two 4 TB disks as one mdadm RAID1
+  mirror, ext4, mounted at `/mnt/storage` with the directories listed in
+  `storage.dirs`. `just storage` prints the array state; `mdmonitor` logs a
+  degraded array through `systemd-cat`, `smartd` warns about a dying disk,
+  and `mdraid-scrub` read-checks the mirror on the first Saturday of the
+  month (`storage.scrubOnCalendar`), which takes hours at low priority.
+  Assembly is by homehost, so there is no `ARRAY` line to keep in sync, and
+  the mount is by filesystem label, so the config holds before the array
+  exists: `mdadm --create ... --homehost=lab --name=storage` over one
+  `FD00` partition per disk, then `mkfs.ext4 -L storage`. The mount is
+  `nofail`, and every unit that writes there waits on it with
+  `RequiresMountsFor` rather than risk building a tree on the SSD.
+  `storage-dirs` re-asserts `ak:lab` and `2775` on every boot, plus a
+  default ACL, which is what makes the creating process's umask irrelevant
+  and lets `nextcloud`, `paperless` and `ak` write each other's files.
+  Unlike the NAS this replaced, the disks spin around the clock. Point
+  Jellyfin libraries at `/mnt/storage/{Movies,Music,Shows}`; Nextcloud
+  mounts everything but `backups/` as external storage on boot.
+- **Paperless** keeps its documents in `/mnt/storage/Documents/Paperless`
+  (`paperless.dir`, `Documents/Paperless` in Nextcloud). Drop a scan into
+  `consume/` by any route and inotify picks it up.
+  `just import-legacy [subdir]` copies the pre-Paperless documents in;
+  unparsable files stay behind in `consume/`.
 - **Jellyfin hardware transcoding** (Intel QuickSync) still has to be
   enabled in Dashboard > Playback.
 - **Formatting** is checked in CI (`nix fmt`), `hardware-configuration.nix`
@@ -119,6 +131,10 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   `/etc/hosts`: `sudo systemctl restart podman-pihole`.
 - **No DNS on the server.** `just tmp-dns` writes a public resolver into
   `/etc/resolv.conf`.
+- **The array is degraded.** `just storage` names the missing member.
+  Partition the replacement the same way (one GPT partition, type `FD00`),
+  then `sudo mdadm /dev/md/storage --add /dev/disk/by-id/<new>-part1` and
+  watch the resync in `/proc/mdstat`. The filesystem stays up throughout.
 - **A rebuild left the machine broken.** Pick the previous generation in the
   systemd-boot menu, or `just rollback`. Ten generations are kept; the kernel
   reboots 30 s after a panic.

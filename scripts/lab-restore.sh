@@ -7,8 +7,7 @@ src="${src:-${LAB_BACKUP_DIR:?}}"
 host="${LAB_HOST:?}"
 
 if [ -d "$src" ]; then
-  # fails fast while the NAS sleeps
-  archive=$(timeout 15 find "$src" -maxdepth 1 -name "$host-*.tar.zst" | sort | tail -n 1 || true)
+  archive=$(find "$src" -maxdepth 1 -name "$host-*.tar.zst" | sort | tail -n 1 || true)
 else
   archive="$src"
 fi
@@ -50,7 +49,7 @@ chown -R paperless:paperless /var/lib/paperless
 chown -R 1000:1000 /var/lib/pihole
 
 secrets=()
-for f in /var/lib/nextcloud/admin-pass /var/lib/paperless/admin-pass /var/lib/pihole/pihole.env /var/lib/nas/credentials; do
+for f in /var/lib/nextcloud/admin-pass /var/lib/paperless/admin-pass /var/lib/pihole/pihole.env; do
   [ -e "$f" ] && secrets+=("$f")
 done
 chown root:root "${secrets[@]}" /etc/ssh/ssh_host_*_key*
@@ -68,7 +67,7 @@ systemctl restart sshd.service
 # config.php exists, so this upgrades instead of installing
 systemctl start nextcloud-setup.service
 nextcloud-occ maintenance:data-fingerprint
-# user files are not in the backup; drop their cache rows. the NAS shares are scanned in the background
+# user files are not in the backup; drop their cache rows. the array is scanned in the background
 nextcloud-occ files:scan --all --home-only
 
 systemctl start nextcloud-cron.timer \

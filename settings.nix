@@ -1,13 +1,11 @@
 # every site-specific value; modules take it as `settings`
 let
-  nasRoot = "/mnt/nas";
-  # the share paperless, the backups and nextcloud's NAS folder live on
-  home = "${nasRoot}/ak";
+  storageRoot = "/mnt/storage";
 in
 {
   hostName = "lab";
 
-  # primary account; owns the NAS mounts
+  # primary account; owns the storage tree
   user = "ak";
   group = "lab";
 
@@ -35,37 +33,33 @@ in
     "1.0.0.1"
   ];
 
-  nas = {
-    # static DHCP lease on the Fritz!Box
-    address = "192.168.178.26";
-    # SMB share names, mounted under mountRoot/<name>
-    shares = [
+  # mdadm RAID1 mirror over the two 4 TB disks, ext4 labelled `storage`
+  storage = {
+    root = storageRoot;
+    # the array is found by filesystem label, not by uuid
+    label = "storage";
+    # created by modules/storage.nix as user:group, setgid and group-writable
+    dirs = [
       "Movies"
       "Music"
       "Shows"
-      "ak"
+      "Documents"
+      "backups"
     ];
-    # never idle-unmounted: backup, paperless-nas-dirs and nextcloud write here
-    keepMounted = [ "ak" ];
-    mountRoot = nasRoot;
-    # written once by `just nas-credentials`
-    credentials = "/var/lib/nas/credentials";
+    # first saturday; a read-check of 3.6 T runs for hours at low priority
+    scrubOnCalendar = "Sat *-*-1..7 03:00";
   };
 
-  # NAS/Documents/Paperless in Nextcloud
+  # Documents/Paperless in Nextcloud
   paperless = {
-    dir = "${home}/Documents/Paperless";
+    dir = "${storageRoot}/Documents/Paperless";
     # imported once with `just import-legacy`
-    legacyDir = "${home}/Documents/Legacy";
-    # cifs reports no remote writes: the consumer polls (seconds) while paperless is up
-    pollInterval = 60;
-    # the 5s default is too tight for a multi-page scan over SMB
-    stabilityDelay = 30;
+    legacyDir = "${storageRoot}/Documents/Legacy";
   };
 
   # `just backup`, `just restore`
   backup = {
-    dir = "${home}/backups/lab";
+    dir = "${storageRoot}/backups/lab";
     keep = 8;
     # after pi-hole's sunday 03:xx gravity run and the nix jobs
     onCalendar = "Sun 05:30";

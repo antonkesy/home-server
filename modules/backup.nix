@@ -54,11 +54,9 @@ in
     ];
   };
 
-  # no RequiresMountsFor: the script triggers the automount and fails cleanly itself
   systemd.services.lab-backup = {
-    description = "config and secrets snapshot to the NAS";
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
+    description = "config and secrets snapshot to the storage array";
+    unitConfig.RequiresMountsFor = [ settings.storage.root ];
     serviceConfig = {
       Type = "oneshot";
       ExecStart = lib.getExe backup;

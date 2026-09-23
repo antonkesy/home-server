@@ -2,7 +2,6 @@
 
 {
   environment.systemPackages = with pkgs; [
-    cifs-utils
     just
     jq
     rsync

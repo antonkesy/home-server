@@ -4,6 +4,7 @@
   imports = [
     ./hardware-configuration.nix
     ./modules/boot.nix
+    ./modules/storage.nix
     ./modules/nix.nix
     ./modules/networking.nix
     ./modules/packages.nix
@@ -12,7 +13,6 @@
     ./modules/bluetooth.nix
     ./modules/home-assistant.nix
     ./modules/jellyfin.nix
-    ./modules/nas.nix
     ./modules/nextcloud.nix
     ./modules/on-demand.nix
     ./modules/pihole.nix

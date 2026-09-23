@@ -11,8 +11,7 @@ keep="${LAB_BACKUP_KEEP:?}"
 exec 9>/run/lock/lab-backup.lock
 flock -n 9 || { echo "another backup is running" >&2; exit 1; }
 
-# triggers the automount; fails fast while the NAS sleeps
-timeout 15 mkdir -p "$dest" || { echo "$dest unreachable" >&2; exit 1; }
+mkdir -p "$dest" || { echo "$dest unreachable" >&2; exit 1; }
 
 # room for the staged archive (KiB)
 [ "$(df --output=avail -k /var/tmp | tail -n 1)" -ge 2097152 ] || { echo "/var/tmp is full" >&2; exit 1; }
@@ -45,7 +44,6 @@ cd /
 shopt -s nullglob
 include=()
 for p in etc/ssh/ssh_host_*_key etc/ssh/ssh_host_*_key.pub \
-  var/lib/nas/credentials \
   var/lib/nextcloud/admin-pass var/lib/nextcloud/config var/lib/nextcloud/store-apps \
   var/lib/nextcloud/data/.ocdata var/lib/nextcloud/data/appdata_* \
   var/lib/paperless/admin-pass var/lib/paperless/db.sqlite3* \
@@ -85,7 +83,7 @@ systemctl start "${restarted[@]}"
 down=0
 
 cp "$stage/$name" "$dest/$name.part"
-# soft cifs: a dropped write surfaces here, not at cp
+# the archive is the only copy of /var/lib; flush and read it back
 sync -f "$dest"
 cmp "$stage/$name" "$dest/$name.part"
 mv "$dest/$name.part" "$dest/$name"

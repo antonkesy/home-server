@@ -39,7 +39,7 @@ rollback:
 
 # Unit status; an inactive service behind an active .socket is idle, not broken
 status:
-    sudo systemctl status --no-pager -n 0 gen-secrets.service home-assistant.service jellyfin-proxy.socket jellyfin.service nextcloud-proxy.socket nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-proxy.socket paperless-nas-dirs.service paperless-web.service paperless-consumer.service podman-pihole.service pihole-domains.service lab-backup.timer || true
+    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin-proxy.socket jellyfin.service nextcloud-proxy.socket nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-proxy.socket paperless-storage-dirs.service paperless-web.service paperless-consumer.service podman-pihole.service pihole-domains.service lab-backup.timer || true
 
 # Snapshot config + secrets; destination defaults to settings.nix
 backup dest="":
@@ -49,13 +49,18 @@ backup dest="":
 restore archive="":
     sudo lab-restore "{{ archive }}"
 
-# Fresh machine: hardware config, install, NAS login, restore
-migrate: hardware install nas-credentials restore
+# Fresh machine: hardware config, install, restore
+migrate: hardware install restore
 
-# Free space on /, then the big directories
+# Free space on / and the array, then the big directories
 disk:
-    df -h /
+    df -h / /mnt/storage
     sudo du -shxc /var/lib/nextcloud/data /var/cache/jellyfin /var/lib/jellyfin/metadata /var/lib/paperless /var/lib/hass /var/lib/pihole /var/lib/redis-nextcloud /var/lib/redis-paperless /var/lib/containers/storage 2>/dev/null || true
+
+# Mirror health; "clean" is good, "degraded" needs a disk
+storage:
+    cat /proc/mdstat
+    sudo mdadm --detail /dev/md/storage
 
 # Follow one unit, e.g. `just logs podman-pihole`
 logs unit:
@@ -69,13 +74,12 @@ import-legacy subdir=".":
     cfg=$(nix eval --json --file "{{ settings }}" paperless)
     SRC="$(jq -r .legacyDir <<<"$cfg")/{{ subdir }}"
     DST="$(jq -r .dir <<<"$cfg")/consume"
-    # triggers the automount; fails fast while the NAS sleeps
-    timeout 15 ls "$SRC" >/dev/null || { echo "$SRC unreachable" >&2; exit 1; }
+    [ -d "$SRC" ] || { echo "$SRC missing" >&2; exit 1; }
     # copy, not move: paperless deletes what it consumes
     sudo rsync -a --ignore-existing --info=progress2 "$SRC/" "$DST/"
     echo "copied - follow with: just logs paperless-consumer"
 
-# Index NAS files Nextcloud has not seen (also runs from the watcher)
+# Index files Nextcloud has not seen (also runs from the watcher)
 scan:
     sudo systemctl start --no-block nextcloud-media-scan.service
     sudo journalctl -u nextcloud-media-scan -f -n 50
@@ -109,18 +113,6 @@ set-nextcloud-pw:
     sudo -u nextcloud OC_PASS="$PW" nextcloud-occ user:resetpassword --password-from-env root
     printf '%s' "$PW" | sudo install -m 0600 /dev/stdin /var/lib/nextcloud/admin-pass
     echo "New Nextcloud password: $PW"
-
-# Enter the NAS SMB login once
-nas-credentials:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    read -rp "NAS username: " NAS_USER
-    read -rsp "NAS password: " PW; echo
-    sudo install -d -m 0755 /var/lib/nas
-    printf 'username=%s\npassword=%s\n' "$NAS_USER" "$PW" | sudo install -m 0600 /dev/stdin /var/lib/nas/credentials
-    # remount with the new credentials
-    sudo systemctl stop 'mnt-nas-*.mount' || true
-    echo "Credentials written; the shares mount on next access"
 
 # Print the generated service passwords
 passwords:

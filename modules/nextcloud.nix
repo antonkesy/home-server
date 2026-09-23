@@ -8,19 +8,20 @@
 
 let
   port = settings.ports.nextcloud;
-  nas = settings.nas.mountRoot;
+  storage = settings.storage.root;
   host = config.networking.hostName;
   occ = lib.getExe config.services.nextcloud.occ;
 
   # OC\Preview\Movie needs ffmpeg; the module puts it on no unit's path
   previewTools = [ pkgs.ffmpeg-headless ];
 
-  # nextcloud folder -> host mount (modules/nas.nix), as "Local" external storage
+  # nextcloud folder -> directory on the storage array (modules/storage.nix),
+  # as "Local" external storage. backups/ is deliberately not among them
   mounts = {
-    Shows = "${nas}/Shows";
-    Movies = "${nas}/Movies";
-    Music = "${nas}/Music";
-    NAS = "${nas}/ak";
+    Shows = "${storage}/Shows";
+    Movies = "${storage}/Movies";
+    Music = "${storage}/Music";
+    Documents = "${storage}/Documents";
   };
 
   # `mount_id_of <name>` from one files_external:list call
@@ -79,7 +80,7 @@ in
     };
     maxUploadSize = "4G";
 
-    # resizes out of process; previews are still built on demand, pre-generating the NAS filled the SSD
+    # resizes out of process; previews are still built on demand, pre-generating the media filled the SSD
     imaginary.enable = true;
 
     # upstream's sizes are below what nextcloud 34 needs; an overflowing opcache recompiles per request
@@ -95,7 +96,7 @@ in
     };
   };
 
-  # cifs: chown/chmod are no-ops, writes need the group
+  # the array is group-writable by setgid + default ACL (modules/storage.nix)
   users.users.nextcloud.extraGroups = [ settings.group ];
 
   # upstream: :80. only the on-demand proxy talks to it (modules/on-demand.nix)
@@ -165,12 +166,13 @@ in
   systemd.services.nextcloud-media-scan = {
     after = [ "nextcloud-external-storage.service" ];
     wants = [ "nextcloud-external-storage.service" ];
+    unitConfig.RequiresMountsFor = [ settings.storage.root ];
     path = with pkgs; [ jq ];
     serviceConfig = {
       Type = "oneshot";
       User = "nextcloud";
       ExecCondition = "${occ} status --exit-code";
-      # a deep scan over SMB outlives the 90s default
+      # a first scan of 3.6 T outlives the 90s default
       TimeoutStartSec = "30min";
     };
     script = ''
@@ -178,27 +180,19 @@ in
 
       ${mountIdFn}
 
-      # the ls triggers the automount; a sleeping NAS is skipped, not failed
-      ${forEachMount (
-        name: mount: ''
-          if timeout 15 ls ${lib.escapeShellArg mount} >/dev/null 2>&1; then
-            ${occ} files_external:scan "$(mount_id_of ${name})"
-          else
-            echo "skipping ${name}: ${mount} unreachable"
-          fi
-        ''
-      )}
+      ${forEachMount (name: _: ''${occ} files_external:scan "$(mount_id_of ${name})"'')}
     '';
   };
 
-  # inotify sees writes made through lab only; the NAS's own need `just scan`.
-  # watches hold inodes, not mounts, so the automounts still idle out
+  # lab is the only writer now, so this sees everything; `just scan` is the repair
+  # path for a tree changed while the watch was down
   systemd.services.nextcloud-media-watch = {
     wantedBy = [ "multi-user.target" ];
     after = [ "nextcloud-external-storage.service" ];
+    unitConfig.RequiresMountsFor = [ settings.storage.root ];
     path = with pkgs; [ inotify-tools ];
     serviceConfig = {
-      # a sleeping NAS fails the watch; keep retrying
+      # inotifywait exits if a watched directory goes away with the array
       Restart = "always";
       RestartSec = "1min";
     };
