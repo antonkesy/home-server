@@ -3,6 +3,99 @@
 Home server (`lab`) running Home Assistant, Jellyfin, Nextcloud, Paperless-ngx
 and Pi-hole, built from a flake.
 
+## Setup
+
+### Hardware
+
+```mermaid
+flowchart LR
+  router["Fritz!Box<br>192.168.178.1<br>static lease .29"] --- nic["LAN"]
+
+  subgraph lab["lab - 192.168.178.29"]
+    nic
+
+    subgraph nvme["nvme0n1 - 512 GB SSD"]
+      p1["p1 - 1 GB vfat<br>/boot"]
+      p2["p2 - 476 GB ext4<br>/ and /nix/store"]
+    end
+
+    subgraph disks["2 x WD Red WD40EFRX - 4 TB each"]
+      sda["sda1 - GPT type FD00"]
+      sdb["sdb1 - GPT type FD00"]
+    end
+
+    md["/dev/md/storage<br>mdadm RAID1<br>homehost lab"]
+    ext4["ext4 label storage<br>/mnt/storage<br>3.6 TB usable"]
+
+    subgraph periph["peripherals"]
+      igpu["Intel iGPU<br>QSV transcoding"]
+      ble["Bluetooth<br>BLE for Home Assistant"]
+      zram["zram 7.6 GB swap<br>no swap partition"]
+    end
+  end
+
+  sda --> md
+  sdb --> md
+  md --> ext4
+```
+
+The mirror is assembled by homehost and mounted by filesystem label, so no
+disk, UUID or `/dev/mdN` is named anywhere in the repo; `docs/raid1.md` builds
+one from blank disks.
+
+### Software
+
+```mermaid
+flowchart TD
+  client["LAN client"]
+
+  subgraph fw["open in the firewall"]
+    ssh["sshd :22"]
+    ph["pi-hole in podman<br>:53 DNS, :4000 UI"]
+    has["home-assistant :8123"]
+    ncs["nextcloud-proxy.socket :8080"]
+    jfs["jellyfin-proxy.socket :8090"]
+    pls["paperless-proxy.socket :28981"]
+  end
+
+  subgraph demand["on demand - proxyd starts the backend, both stop after 30 min idle"]
+    ncp["nextcloud-proxy"] --> ncb["nginx :8081<br>phpfpm-nextcloud, imaginary"]
+    jfp["jellyfin-proxy"] --> jfb["jellyfin :8096"]
+    plp["paperless-proxy"] --> plb["paperless-scheduler<br>web :28982, consumer, task-queue"]
+  end
+
+  subgraph ssdg["SSD - /var/lib"]
+    pg[("postgresql")]
+    rd[("redis")]
+    st["paperless db + index<br>hass, jellyfin, pi-hole state"]
+  end
+
+  subgraph raid["RAID1 - /mnt/storage"]
+    med["Movies / Music / Shows"]
+    doc["Documents/Paperless<br>consume + media"]
+    bak["backups/lab"]
+  end
+
+  client --> ssh & ph & has
+  client --> ncs & jfs & pls
+  ncs --> ncp
+  jfs --> jfp
+  pls --> plp
+  ph --> st
+  has --> st
+  ncb --> pg & rd
+  ncb --> med & doc
+  jfb --> med
+  plb --> doc
+  plb --> st
+  tb["lab-backup.timer<br>Sun 05:30"] --> bak
+```
+
+The backend ports (8081, 8096, 28982) stay closed in the firewall: the sockets
+are the only way in (`modules/on-demand.nix`). Not drawn are the other
+scheduled jobs - `nix-gc` at 03:15, `nix-optimise` at 04:00 and `fstrim` at
+04:30 on Sundays, `mdraid-scrub` on the first Saturday.
+
 ## Install
 
 ```bash
