@@ -107,11 +107,12 @@ in
   # on cifs
   users.users.nextcloud.extraGroups = [ settings.group ];
 
-  # the module's vhost defaults to :80
+  # the module's vhost defaults to :80; only the on-demand proxy talks to it
+  # (modules/on-demand.nix), clients see `port`
   services.nginx.virtualHosts.${host}.listen = [
     {
-      addr = "0.0.0.0";
-      inherit port;
+      addr = "127.0.0.1";
+      port = settings.onDemand.nextcloudPort;
     }
   ];
 

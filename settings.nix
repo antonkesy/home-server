@@ -70,6 +70,7 @@
     ssh = 22;
     dns = 53;
     pihole = 4000;
+    # the on-demand proxy; nginx listens on onDemand.nextcloudPort
     nextcloud = 8080;
     # the on-demand proxy; jellyfin itself listens on onDemand.jellyfinPort
     jellyfin = 8090;
@@ -87,5 +88,6 @@
     # fixed upstream; the module has no port option
     jellyfinPort = 8096;
     paperlessPort = 28982;
+    nextcloudPort = 8081;
   };
 }

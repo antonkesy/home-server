@@ -50,6 +50,10 @@ let
   waitForUrl =
     url:
     "${lib.getExe pkgs.curl} -sf --retry 60 --retry-delay 1 --retry-all-errors -o /dev/null ${url}";
+  # any http answer will do, a 503 from maintenance mode included
+  waitForPort =
+    port:
+    "${lib.getExe pkgs.curl} -s --retry 60 --retry-delay 1 --retry-all-errors -o /dev/null http://127.0.0.1:${toString port}/";
 in
 lib.mkMerge [
   (onDemandProxy {
@@ -65,6 +69,14 @@ lib.mkMerge [
     # upstream's anchor: it Wants web/consumer/task-queue, and web+consumer
     # BindsTo it, so the whole set follows it up and down
     backend = "paperless-scheduler.service";
+  })
+  (onDemandProxy {
+    name = "nextcloud";
+    publicPort = settings.ports.nextcloud;
+    backendPort = onDemand.nextcloudPort;
+    # nginx serves nothing else on this box. postgres, redis, the cron timer
+    # and the media watcher stay up: they are cheap, and occ needs them
+    backend = "nginx.service";
   })
   {
     systemd.services.jellyfin = {
@@ -86,5 +98,32 @@ lib.mkMerge [
     # Requires only orders the proxy after the scheduler; granian must be
     # listening before the first connection is forwarded
     systemd.services.paperless-proxy.after = [ "paperless-web.service" ];
+
+    # nginx is Type=simple, so the same wait; php-fpm is Type=notify and
+    # imaginary only matters once a preview is asked for
+    systemd.services.nginx = {
+      wantedBy = lib.mkForce [ ];
+      unitConfig.StopWhenUnneeded = true;
+      serviceConfig.ExecStartPost = waitForPort onDemand.nextcloudPort;
+    };
+    systemd.services.phpfpm-nextcloud = {
+      # upstream: phpfpm.target
+      wantedBy = lib.mkForce [ ];
+      unitConfig.StopWhenUnneeded = true;
+    };
+    systemd.services.imaginary = {
+      wantedBy = lib.mkForce [ ];
+      unitConfig.StopWhenUnneeded = true;
+    };
+    systemd.services.nextcloud-proxy = {
+      requires = [
+        "phpfpm-nextcloud.service"
+        "imaginary.service"
+      ];
+      after = [
+        "phpfpm-nextcloud.service"
+        "imaginary.service"
+      ];
+    };
   }
 ]

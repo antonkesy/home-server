@@ -45,9 +45,9 @@ upgrade:
 rollback:
     sudo nixos-rebuild switch --rollback
 
-# jellyfin and paperless are on-demand: inactive is their idle state, the .socket is what must be active
+# jellyfin, paperless and nginx are on-demand: inactive is their idle state, the .socket is what must be active
 status:
-    sudo systemctl status home-assistant.service jellyfin-proxy.socket jellyfin.service nextcloud-setup.service paperless-proxy.socket paperless-web.service podman-pihole.service lab-backup.timer --no-pager || true
+    sudo systemctl status home-assistant.service jellyfin-proxy.socket jellyfin.service nextcloud-proxy.socket nginx.service nextcloud-setup.service paperless-proxy.socket paperless-web.service podman-pihole.service lab-backup.timer --no-pager || true
 
 # Snapshot config + secrets; destination defaults to settings.nix
 backup dest="":

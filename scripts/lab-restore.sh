@@ -20,9 +20,12 @@ stage=$(mktemp -d /var/tmp/lab-restore.XXXXXX)
 trap 'rm -rf "$stage"' EXIT
 tar --zstd -xf "$archive" -C "$stage" nextcloud.pgdump
 
-systemctl stop home-assistant.service jellyfin.service \
+# the on-demand sockets first, or a client would start a service back up
+# under the extract
+systemctl stop jellyfin-proxy.socket paperless-proxy.socket nextcloud-proxy.socket \
+  home-assistant.service jellyfin.service \
   paperless-scheduler.service paperless-task-queue.service podman-pihole.service \
-  phpfpm-nextcloud.service nextcloud-cron.timer nextcloud-media-watch.service
+  nginx.service phpfpm-nextcloud.service nextcloud-cron.timer nextcloud-media-watch.service
 
 # a stale wal from the fresh install would be replayed onto the restored db
 rm -f /var/lib/paperless/db.sqlite3-{wal,shm,journal} \
@@ -59,8 +62,11 @@ nextcloud-occ maintenance:data-fingerprint
 # user files are not in the backup; drop their cache rows
 nextcloud-occ files:scan --all
 
-systemctl start phpfpm-nextcloud.service nextcloud-cron.timer \
+# jellyfin, paperless and nextcloud's web side are on demand: the sockets
+# come back, the services start on the next connection
+systemctl start nextcloud-cron.timer \
   nextcloud-external-storage.service nextcloud-media-watch.service \
-  home-assistant.service jellyfin.service paperless-scheduler.service podman-pihole.service
+  home-assistant.service podman-pihole.service \
+  jellyfin-proxy.socket paperless-proxy.socket nextcloud-proxy.socket
 
 echo "restored; check with: just status && just passwords"

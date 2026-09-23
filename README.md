@@ -34,16 +34,19 @@ Nextcloud reads its file once, at first setup - editing it later changes
 nothing. Rotate with `just set-nextcloud-pw`, which resets the password through
 `occ` and rewrites the file so `just passwords` stays true.
 
-Jellyfin and Paperless are on demand: they run only while someone is
-connected and stop 30 minutes after the last connection closes
-(`onDemand.idleTimeout` in `settings.nix`). The first request after that pause
-takes a few seconds while the service comes up; the browser simply waits.
-What that costs: Jellyfin's network auto-discovery does not answer while it is
-off, so clients must be pointed at `http://lab:8090` by hand, its scheduled
-tasks only run while it is up, and a scan dropped into the Paperless consume
-folder waits until someone next opens Paperless. `just status` shows the two
-`.socket` units as the always-on part; an `inactive` `jellyfin.service` is the
-idle state, not a failure.
+Jellyfin, Paperless and Nextcloud's web side (nginx, php-fpm, imaginary) are
+on demand: they run only while someone is connected and stop 30 minutes after
+the last connection closes (`onDemand.idleTimeout` in `settings.nix`). The
+first request after that pause takes a few seconds while the service comes up;
+the browser simply waits. What that costs: Jellyfin's network auto-discovery
+does not answer while it is off, so clients must be pointed at
+`http://lab:8090` by hand, its scheduled tasks only run while it is up, and a
+scan dropped into the Paperless consume folder waits until someone next opens
+Paperless. Nextcloud's database, cron and NAS watcher stay up, so background
+jobs still run; a desktop or phone sync client polls every few minutes and
+keeps the web side awake for as long as it runs. `just status` shows the
+`.socket` units as the always-on part; an `inactive` `jellyfin.service` or
+`nginx.service` is the idle state, not a failure.
 
 ## Day to day
 
