@@ -39,7 +39,7 @@ rollback:
 
 # Unit status
 status:
-    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service podman-pihole.service pihole-domains.service lab-backup.timer nextcloud-preview-pregenerate.timer nextcloud-memories-index.service || true
+    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service podman-pihole.service pihole-domains.service lab-backup.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
 
 # Snapshot config + secrets; destination defaults to settings.nix
 backup dest="":
@@ -55,7 +55,7 @@ migrate: hardware install restore
 # Free space on / and the array, then the big directories
 disk:
     df -h / /mnt/storage
-    sudo du -shxc /var/lib/nextcloud/data /var/cache/jellyfin /var/lib/jellyfin/metadata /var/lib/paperless /var/lib/hass /var/lib/pihole /var/lib/redis-nextcloud /var/lib/redis-paperless /var/lib/containers/storage 2>/dev/null || true
+    sudo du -shxc /var/lib/nextcloud/data /var/cache/nextcloud-go-vod /var/cache/nextcloud-memories /var/cache/jellyfin /var/lib/jellyfin/metadata /var/lib/paperless /var/lib/hass /var/lib/pihole /var/lib/redis-nextcloud /var/lib/redis-paperless /var/lib/containers/storage 2>/dev/null || true
 
 # Mirror health and disk power state; "clean" is good, "degraded" needs a disk
 storage:
@@ -83,21 +83,15 @@ scan:
     sudo systemctl start --no-block nextcloud-media-scan.service
     sudo journalctl -u nextcloud-media-scan -f -n 50
 
-# One-off: build the missing thumbnails for settings.nix nextcloud.previewDirs
+# Build the missing thumbnails now, instead of waiting for the nightly run
 warm-previews:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # reads every original in those directories once; the hourly
-    # nextcloud-preview-pregenerate timer keeps up from then on
-    mapfile -t dirs < <(nix eval --json --file "{{ settings }}" nextcloud.previewDirs | jq -r '.[]')
-    mapfile -t users < <(sudo -u nextcloud nextcloud-occ user:list --output=json | jq -r 'keys[]')
-    paths=()
-    for u in "${users[@]}"; do
-      for d in "${dirs[@]}"; do paths+=("--path=/$u/files/$d"); done
-    done
-    df -h /
-    sudo -u nextcloud nextcloud-occ preview:generate-all -vv "${paths[@]}"
-    df -h /
+    sudo systemctl start --no-block nextcloud-preview-generate.service
+    sudo journalctl -u nextcloud-preview-generate -f -n 50
+
+# Index the photo directories for the Memories timeline
+index-photos:
+    sudo systemctl start --no-block nextcloud-memories-index.service
+    sudo journalctl -u nextcloud-memories-index -f -n 50
 
 # Garbage-collect; also drops the rollback generations
 clean:

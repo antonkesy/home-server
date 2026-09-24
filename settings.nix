@@ -69,8 +69,10 @@ in
     # the whole array once filled the SSD; everything else still gets a
     # thumbnail the first time it is opened, just not in bulk
     previewDirs = [ "Photos" ];
-    # the hourly pre-generate run skips while / has less than this free
+    # both preview units skip a run while / has less than this free, in GB
     previewMinFreeGB = 50;
+    # the nightly pass over previewDirs; before the 03:15 nix gc
+    previewOnCalendar = "02:30";
   };
 
   # `just backup`, `just restore`

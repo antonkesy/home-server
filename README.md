@@ -187,35 +187,51 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   because `fritz.box` is a real public domain.
 - **Nextcloud** is trimmed to file sharing: `nextcloud-disable-apps` turns
   the stock dashboard, activity, photos and similar apps off on every boot,
-  cron runs every 15 minutes. Upgrade one major version at a time
+  cron runs every 15 minutes. `previewgenerator` and `memories` are the
+  exception: they are `extraApps`, so Nix owns their directories and
+  `nextcloud-setup` re-enables them on every start - never install or update
+  either from the app store, since a newer copy in `store-apps` shadows the
+  pinned one. Upgrade one major version at a time
   (`nextcloud35` only once 34 has migrated, see `nextcloud-occ status`).
 - **Nextcloud previews.** A thumbnail used to be built the moment the browser
   asked for one: read the whole original off the array, decode and resize it,
   per image, per size, which is why a folder of photos crawled. `imaginary`
-  takes the resizing out of PHP, and `previewgenerator` now builds the
-  thumbnails before anything asks. Pre-generating the whole array was tried
-  once and filled the SSD, so the bulk pass is scoped to
-  `nextcloud.previewDirs` in `settings.nix` (`Photos`) and asks only for the
-  sizes the UI actually uses; everything else still gets its thumbnail the
-  first time it is opened. `nextcloud-preview-pregenerate` runs hourly over
-  what changed since the last run and skips itself while `/` has less than
-  `nextcloud.previewMinFreeGB` free. The app only ever queues files it saw
-  change, so a library that predates it needs `just warm-previews` once - it
-  reads every original in those directories and takes hours. The cache lives
-  in `/var/lib/nextcloud/data/appdata_*/preview`; `just disk` breaks the usage
-  down per cache and media dir.
+  takes the resizing out of PHP and `previewgenerator` builds the thumbnails
+  before anything asks. Pre-generating the whole array was tried once and
+  filled the SSD, so this is scoped to `nextcloud.previewDirs` in
+  `settings.nix` (`Photos`); everything else still gets its thumbnail the first
+  time it is opened, just not in bulk. Two units, because the app queues only
+  what Nextcloud itself wrote: `nextcloud-preview-pregenerate` drains that
+  queue hourly, which covers web, WebDAV and sync-client uploads, and
+  `nextcloud-preview-generate` walks `previewDirs` nightly at
+  `nextcloud.previewOnCalendar` for everything that arrived on the array some
+  other way and fired no event. The nightly pass is hours the first time and
+  minutes afterwards - a file that already has a thumbnail is skipped - and
+  `just warm-previews` is the same unit by hand. Both carry an `ExecCondition`
+  that skips the run while `/` has less than `nextcloud.previewMinFreeGB` free,
+  so a full disk shows up as a skipped unit rather than a wedged one. The sizes
+  are re-asserted before every run because app config lives in the database;
+  only powers of four up to `preview_max_x/y` survive, and the 2048 "max"
+  preview Nextcloud caches beside them is what actually costs. The cache lives
+  in `/var/lib/nextcloud/data/appdata_*/preview` and `just disk` breaks it out.
+  A `.nomedia` file in any folder skips that folder.
 - **Nextcloud Memories** replaces the stock `photos` app that
-  `nextcloud-disable-apps` turns off. The binaries it normally ships - its own
-  `exiftool` and the `go-vod` transcoder - are replaced by the nixpkgs package,
-  which patches the store paths straight into the app and rejects any attempt
-  to set them, so the config here is only the two switches: transcoding is
-  turned on (upstream ships it off) and pointed at QSV, the same driver stack
-  Jellyfin uses. go-vod runs as a child of php-fpm, which is why the render
-  node is granted on that unit and not on one of ours. Both switches live in
-  `override.config.php`, so Settings > Memories cannot change them;
-  `memories.vod.disable` and `memories.vod.vaapi` in `modules/nextcloud.nix`
-  are what to turn if playback misbehaves. `nextcloud-memories-index` does the
-  first pass over an existing library at boot and is a no-op afterwards.
+  `nextcloud-disable-apps` turns off. `just index-photos` does the first pass
+  over a library that was already on the array; after that its own job indexes
+  from `nextcloud-cron`. That job defaults to walking *every* external storage,
+  which is the one thing `files_no_background_scan` exists to prevent, so
+  `memories.index.mode` is set to the timeline only and the timeline defaults
+  to `previewDirs`. The binaries it normally ships - its own `exiftool` and the
+  `go-vod` transcoder - are replaced by the nixpkgs package, which patches the
+  store paths into the app and rejects any attempt to set them, so the config
+  here names no binary. Transcoding is turned on (upstream ships it off) and
+  pointed at QSV, the same driver stack Jellyfin uses; go-vod runs as a child
+  of a php-fpm worker, which is why the render node is granted on that unit and
+  its scratch directories are tmpfiles rather than a `CacheDirectory` (the unit
+  itself runs as root, only the pool runs as `nextcloud`). All of it lives in
+  `override.config.php`, so Settings > Memories will appear to save and have no
+  effect; `memories.vod.disable` and `memories.vod.vaapi` in
+  `modules/nextcloud.nix` are what to turn if playback misbehaves.
 - **How Nextcloud notices a file it did not write.** Three ways, because
   `files_no_background_scan` keeps cron off the array. Each mount is created
   with `filesystem_check_changes 1`, so opening a folder re-checks it - that
