@@ -41,7 +41,7 @@ in
     # hdparm's 30-minute units: 241 = 30 min. multiples of 30, up to 330
     standbyMinutes = 30;
     # created by modules/storage.nix as user:group, setgid and group-writable;
-    # everything but `backups` is also a nextcloud external storage
+    # each one is also a nextcloud external storage
     dirs = [
       "Movies"
       "Music"
@@ -54,7 +54,6 @@ in
       "Archive"
       "Backups"
       "ak"
-      "backups"
     ];
     # first saturday; a read-check of 3.6 T runs for hours at low priority
     scrubOnCalendar = "Sat *-*-1..7 03:00";
@@ -63,13 +62,12 @@ in
   # Documents/Paperless in Nextcloud
   paperless = {
     dir = "${storageRoot}/Documents/Paperless";
-    # imported once with `just import-legacy`
-    legacyDir = "${storageRoot}/Documents/Legacy";
   };
 
   # `just backup`, `just restore`
   backup = {
-    dir = "${storageRoot}/backups/lab";
+    # lab's own archives, under the user-facing Backups
+    dir = "${storageRoot}/Backups/lab";
     keep = 8;
     # after pi-hole's sunday 03:xx gravity run and the nix jobs
     onCalendar = "Sun 05:30";

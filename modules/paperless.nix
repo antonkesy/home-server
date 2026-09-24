@@ -31,7 +31,7 @@ in
     mediaDir = media;
     settings = {
       PAPERLESS_OCR_LANGUAGE = settings.ocrLanguages;
-      # subfolders (and the `just import-legacy` tree) are ignored otherwise
+      # a scan dropped into a subfolder of consume/ is ignored otherwise
       PAPERLESS_CONSUMER_RECURSIVE = true;
       # upstream: every sunday. it checksums every file on the array, so it
       # runs with the scrub instead, on the one night the disks are up anyway.

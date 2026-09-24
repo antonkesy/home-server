@@ -67,9 +67,10 @@ flowchart TD
   end
 
   subgraph raid["RAID1 - /mnt/storage"]
-    med["Movies / Music / Shows"]
+    med["Movies / Music / Shows<br>Audiobooks / Soundtracks<br>eBooks / Photos"]
     doc["Documents/Paperless<br>consume + media"]
-    bak["backups/lab"]
+    arc["Archive / ak"]
+    bak["Backups<br>Backups/lab"]
   end
 
   client --> ssh & ph & has
@@ -77,7 +78,7 @@ flowchart TD
   ph --> st
   has --> st
   ncb --> pg & rd
-  ncb --> med & doc
+  ncb --> med & doc & arc & bak
   jfb --> med
   plb --> doc
   plb --> st
@@ -141,8 +142,11 @@ Garbage collection also runs on its own every Sunday, keeping 30 days.
 ## Backup & restore
 
 `just backup [dir]` writes one `lab-<date>.tar.zst` to
-`/mnt/storage/backups/lab`; `lab-backup.timer` does the same every Sunday
-morning and keeps the last eight (`backup` in `settings.nix`). Inside:
+`/mnt/storage/Backups/lab`; `lab-backup.timer` does the same every Sunday
+morning and keeps the last eight (`backup` in `settings.nix`). `Backups` is a
+Nextcloud external storage like every other directory on the array, so an
+archive - and with it the service passwords and the SSH host keys - is one
+Nextcloud login away. Inside:
 
 - the generated passwords, the SSH host keys
 - Nextcloud: `config.php`, installed apps, app data, a Postgres dump
@@ -210,16 +214,15 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   enclosure re-enumerating; a USB bridge that rejects the command is ignored,
   and the enclosure's own idle timer is then what matters. `just storage`
   prints the power state. `storage.dirs` is the only list: Nextcloud mounts
-  everything but `backups/` as external storage on boot, and every unit that
+  every one of them as external storage on boot, and every unit that
   touches the array is ordered after `storage-dirs` - Jellyfin included,
   because a library scan against an unmounted array empties the library.
   Jellyfin's own libraries are still pointed at
   `/mnt/storage/{Movies,Music,Shows}` by hand in its dashboard.
 - **Paperless** keeps its documents in `/mnt/storage/Documents/Paperless`
   (`paperless.dir`, `Documents/Paperless` in Nextcloud). Drop a scan into
-  `consume/` by any route and inotify picks it up.
-  `just import-legacy [subdir]` copies the pre-Paperless documents in;
-  unparsable files stay behind in `consume/`.
+  `consume/` by any route and inotify picks it up; unparsable files stay
+  behind in `consume/`.
 - **Jellyfin hardware transcoding** (Intel QuickSync) still has to be
   enabled in Dashboard > Playback.
 - **Jellyfin's scheduled tasks are the one thing this repo cannot set.** They

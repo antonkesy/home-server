@@ -68,23 +68,11 @@ storage:
 logs unit:
     sudo journalctl -u "{{ unit }}" -f -n 100
 
-# Copy pre-Paperless documents into consume; safe to re-run
-import-legacy subdir=".":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # plain attrset: readable without evaluating the flake
-    cfg=$(nix eval --json --file "{{ settings }}" paperless)
-    SRC="$(jq -r .legacyDir <<<"$cfg")/{{ subdir }}"
-    DST="$(jq -r .dir <<<"$cfg")/consume"
-    [ -d "$SRC" ] || { echo "$SRC missing" >&2; exit 1; }
-    # copy, not move: paperless deletes what it consumes
-    sudo rsync -a --ignore-existing --info=progress2 "$SRC/" "$DST/"
-    echo "copied - follow with: just logs paperless-consumer"
-
 # Re-assert ownership, modes and ACLs over the whole array; safe to re-run
 fix-perms:
     #!/usr/bin/env bash
     set -euo pipefail
+    # plain attrset: readable without evaluating the flake
     cfg=$(nix eval --json --file "{{ settings }}" storage)
     root=$(jq -r .root <<<"$cfg")
     mapfile -t dirs < <(jq -r --arg r "$root" '.dirs[] | $r + "/" + .' <<<"$cfg")

@@ -16,10 +16,8 @@ let
   previewTools = [ pkgs.ffmpeg-headless ];
 
   # nextcloud folder -> directory on the storage array (modules/storage.nix),
-  # as "Local" external storage. backups/ is deliberately not among them
-  mounts = lib.genAttrs (lib.subtractLists [ "backups" ] settings.storage.dirs) (
-    name: "${storage}/${name}"
-  );
+  # as "Local" external storage; the whole tree, lab's own backups included
+  mounts = lib.genAttrs settings.storage.dirs (name: "${storage}/${name}");
 
   # `mount_id_of <name>` from one files_external:list call
   mountIdFn = ''
