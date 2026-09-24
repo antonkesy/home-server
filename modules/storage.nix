@@ -56,6 +56,14 @@ in
     PROGRAM ${alert}
   '';
 
+  # mdadm 4.6 shells out to modprobe from the udev callout; udevd's PATH has no kmod,
+  # so the array never assembled. also load it early so udev needs no modprobe
+  systemd.services.systemd-udevd.path = [ pkgs.kmod ];
+  boot.kernelModules = [
+    "md_mod"
+    "raid1"
+  ];
+
   # by label, so this holds before the array exists. mkDefault yields to the
   # by-uuid entry `just hardware` would record once it is mounted
   fileSystems.${storage.root} = {
