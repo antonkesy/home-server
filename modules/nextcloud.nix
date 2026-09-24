@@ -17,12 +17,9 @@ let
 
   # nextcloud folder -> directory on the storage array (modules/storage.nix),
   # as "Local" external storage. backups/ is deliberately not among them
-  mounts = {
-    Shows = "${storage}/Shows";
-    Movies = "${storage}/Movies";
-    Music = "${storage}/Music";
-    Documents = "${storage}/Documents";
-  };
+  mounts = lib.genAttrs (lib.subtractLists [ "backups" ] settings.storage.dirs) (
+    name: "${storage}/${name}"
+  );
 
   # `mount_id_of <name>` from one files_external:list call
   mountIdFn = ''

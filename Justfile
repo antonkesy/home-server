@@ -81,6 +81,23 @@ import-legacy subdir=".":
     sudo rsync -a --ignore-existing --info=progress2 "$SRC/" "$DST/"
     echo "copied - follow with: just logs paperless-consumer"
 
+# Re-assert ownership, modes and ACLs over the whole array; safe to re-run
+fix-perms:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cfg=$(nix eval --json --file "{{ settings }}" storage)
+    root=$(jq -r .root <<<"$cfg")
+    mapfile -t dirs < <(jq -r --arg r "$root" '.dirs[] | $r + "/" + .' <<<"$cfg")
+    owner="$(nix eval --raw --file "{{ settings }}" user):$(nix eval --raw --file "{{ settings }}" group)"
+    # only the contents; storage-dirs re-asserts the directories themselves on
+    # every boot. a metadata walk, but it keeps the disks spinning throughout
+    sudo chown -R "$owner" "${dirs[@]}"
+    # capital X: execute on directories, not on every media file
+    sudo chmod -R g+rwX "${dirs[@]}"
+    sudo find "${dirs[@]}" -type d -exec chmod g+s {} +
+    sudo setfacl -R -m d:g::rwX -m g::rwX "${dirs[@]}"
+    echo "done - follow with: just scan"
+
 # Index files Nextcloud has not seen (also runs from the watcher)
 scan:
     sudo systemctl start --no-block nextcloud-media-scan.service

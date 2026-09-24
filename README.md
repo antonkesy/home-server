@@ -199,14 +199,22 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   `RequiresMountsFor` rather than risk building a tree on the SSD.
   `storage-dirs` re-asserts `ak:lab` and `2775` on every boot, plus a
   default ACL, which is what makes the creating process's umask irrelevant
-  and lets `nextcloud`, `paperless` and `ak` write each other's files.
+  and lets `nextcloud`, `paperless`, `jellyfin` and `ak` write each other's
+  files. It covers the array root and the listed directories, not their
+  contents: a tree copied in as root keeps its `root:root`, and `cp -a` or
+  `rsync -a` re-apply the source modes over the inherited ACL. `just
+  fix-perms` repairs that once, recursively; `just scan` after it, because
+  Nextcloud caches a permission per file.
   A udev rule sets a 30-minute ATA standby timer on whichever devices carry
   the RAID superblock, so no serial is hardcoded and it survives the
   enclosure re-enumerating; a USB bridge that rejects the command is ignored,
   and the enclosure's own idle timer is then what matters. `just storage`
-  prints the power state. Point Jellyfin libraries at
-  `/mnt/storage/{Movies,Music,Shows}`; Nextcloud mounts everything but
-  `backups/` as external storage on boot.
+  prints the power state. `storage.dirs` is the only list: Nextcloud mounts
+  everything but `backups/` as external storage on boot, and every unit that
+  touches the array is ordered after `storage-dirs` - Jellyfin included,
+  because a library scan against an unmounted array empties the library.
+  Jellyfin's own libraries are still pointed at
+  `/mnt/storage/{Movies,Music,Shows}` by hand in its dashboard.
 - **Paperless** keeps its documents in `/mnt/storage/Documents/Paperless`
   (`paperless.dir`, `Documents/Paperless` in Nextcloud). Drop a scan into
   `consume/` by any route and inotify picks it up.
@@ -234,6 +242,11 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   Partition the replacement the same way (one GPT partition, type `FD00`),
   then `sudo mdadm /dev/md/storage --add /dev/disk/by-id/<new>-part1` and
   watch the resync in `/proc/mdstat`. The filesystem stays up throughout.
+- **No delete or rename in Nextcloud.** A local external storage takes every
+  permission from the filesystem, so the action is missing wherever
+  `nextcloud` cannot write - usually content copied onto the array as root.
+  `sudo -u nextcloud test -w /mnt/storage/Movies/<subdir>` says whether that
+  is it; `just fix-perms`, then `just scan`.
 - **A rebuild left the machine broken.** Pick the previous generation in the
   systemd-boot menu, or `just rollback`. Ten generations are kept; the kernel
   reboots 30 s after a panic.

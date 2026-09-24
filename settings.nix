@@ -40,12 +40,17 @@ in
     label = "storage";
     # hdparm's 30-minute units: 241 = 30 min. multiples of 30, up to 330
     standbyMinutes = 30;
-    # created by modules/storage.nix as user:group, setgid and group-writable
+    # created by modules/storage.nix as user:group, setgid and group-writable;
+    # everything but `backups` is also a nextcloud external storage
     dirs = [
       "Movies"
       "Music"
       "Shows"
+      "Audiobooks"
+      "Soundtracks"
+      "eBooks"
       "Documents"
+      "ak"
       "backups"
     ];
     # first saturday; a read-check of 3.6 T runs for hours at low priority

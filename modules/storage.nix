@@ -8,10 +8,14 @@
 let
   inherit (settings) storage;
 
-  dirs = map (name: "${storage.root}/${name}") storage.dirs;
+  # the root too: a directory ak creates there then inherits the ACL
+  dirs = [ storage.root ] ++ map (name: "${storage.root}/${name}") storage.dirs;
 
-  # everything that writes into the tree; same shape as gen-secrets (modules/secrets.nix)
+  # everything that reads or writes the tree; same shape as gen-secrets (modules/secrets.nix)
   consumers = [
+    # jellyfin reads only, but a library scan against an unmounted array
+    # empties the library
+    "jellyfin.service"
     "paperless-storage-dirs.service"
     "nextcloud-external-storage.service"
     "nextcloud-media-scan.service"
@@ -91,7 +95,9 @@ in
       RemainAfterExit = true;
     };
     # setgid plus a default ACL: ext4 has no file_mode=, so without this a file
-    # nextcloud writes under umask 022 is unwritable by ak and the other way round
+    # nextcloud writes under umask 022 is unwritable by ak and the other way round.
+    # only these directories, not their contents - `just fix-perms` repairs a
+    # tree that was copied in as root
     script = ''
       set -euo pipefail
 

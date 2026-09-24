@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, settings, ... }:
 
 {
   # the port is in settings.ports, which networking.nix opens; jellyfin itself
@@ -20,8 +20,11 @@
     ];
   };
 
+  # render/video for QSV; the array is group-writable by setgid + default ACL
+  # (modules/storage.nix), and jellyfin saves artwork next to the media
   users.users.jellyfin.extraGroups = [
     "render"
     "video"
+    settings.group
   ];
 }
