@@ -49,7 +49,10 @@ in
       "Audiobooks"
       "Soundtracks"
       "eBooks"
+      "Photos"
       "Documents"
+      "Archive"
+      "Backups"
       "ak"
       "backups"
     ];
