@@ -5,7 +5,7 @@
   # reads it from /var/lib/jellyfin/config/network.xml, not from nix
   services.jellyfin.enable = true;
 
-  # client auto-discovery; it never answered while the service was on demand
+  # client auto-discovery
   networking.firewall.allowedUDPPorts = [
     1900
     7359

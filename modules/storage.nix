@@ -26,7 +26,7 @@ let
     )
   );
 
-  # everything that reads or writes the tree; same shape as gen-secrets (modules/secrets.nix)
+  # everything that reads or writes the tree
   consumers = [
     # jellyfin reads only, but a library scan against an unmounted array
     # empties the library
@@ -124,10 +124,9 @@ in
         ${lib.escapeShellArgs dirs}
       setfacl -m d:g::rwX -m g::rwX ${lib.escapeShellArgs dirs}
 
-      # the pass above covers the directories themselves; their contents keep
-      # whatever they arrived with, and `cp -a`, `rsync -a` or a copy made as
-      # root re-apply the source modes over the inherited ACL. repairing that
-      # means walking the array, so it happens only when the scheme changed
+      # the pass above covers the directories, not their contents: `cp -a`,
+      # `rsync -a` or a copy made as root re-apply the source modes over the
+      # inherited ACL. repairing that walks the array, so only on a change
       if [ "$(cat ${stamp} 2>/dev/null || true)" != ${stampValue} ]; then
         echo "repairing ${toString (builtins.length trees)} directories"
         chown -R ${settings.user}:${settings.group} ${lib.escapeShellArgs trees}

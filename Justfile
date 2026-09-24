@@ -83,7 +83,7 @@ scan:
     sudo systemctl start --no-block nextcloud-media-scan.service
     sudo journalctl -u nextcloud-media-scan -f -n 50
 
-# Build the missing thumbnails now, instead of waiting for the nightly run
+# Build missing thumbnails now instead of waiting for the nightly run
 warm-previews:
     sudo systemctl start --no-block nextcloud-preview-generate.service
     sudo journalctl -u nextcloud-preview-generate -f -n 50

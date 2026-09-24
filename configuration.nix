@@ -20,7 +20,6 @@
     ./modules/users.nix
   ];
 
-  # also Paperless dates and the Pi-hole container
   time.timeZone = settings.timeZone;
   i18n.defaultLocale = settings.locale;
 
@@ -30,9 +29,8 @@
   # no swap partition
   zramSwap.enable = true;
 
-  # the intel_pstate default; stated rather than assumed. deliberately not
-  # powerManagement.powertop.enable: --auto-tune turns on usb autosuspend,
-  # which makes an external disk enclosure throw i/o errors
+  # deliberately not powerManagement.powertop.enable: --auto-tune turns on usb
+  # autosuspend, which makes an external disk enclosure throw i/o errors
   powerManagement.cpuFreqGovernor = "powersave";
 
   # the manual is read elsewhere; building it is rebuild time

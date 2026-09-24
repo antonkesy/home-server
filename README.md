@@ -41,9 +41,7 @@ flowchart LR
   md --> ext4
 ```
 
-The mirror is assembled by homehost and mounted by filesystem label, so no
-disk, UUID or `/dev/mdN` is named anywhere in the repo. Building one from
-blank disks is the **Storage** note below.
+Building the mirror from blank disks is the **Storage** note below.
 
 ### Software
 
@@ -185,53 +183,34 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
 - **LAN names.** Pi-hole serves `lab` and `lab.fritz.box` from the server's
   `/etc/hosts`; everything else under `fritz.box` is forwarded to the router,
   because `fritz.box` is a real public domain.
-- **Nextcloud** is trimmed to file sharing: `nextcloud-disable-apps` turns
-  the stock dashboard, activity, photos and similar apps off on every boot,
-  cron runs every 15 minutes. `previewgenerator` and `memories` are the
-  exception: they are `extraApps`, so Nix owns their directories and
-  `nextcloud-setup` re-enables them on every start - never install or update
-  either from the app store, since a newer copy in `store-apps` shadows the
-  pinned one. Upgrade one major version at a time
-  (`nextcloud35` only once 34 has migrated, see `nextcloud-occ status`).
-- **Nextcloud previews.** A thumbnail used to be built the moment the browser
-  asked for one: read the whole original off the array, decode and resize it,
-  per image, per size, which is why a folder of photos crawled. `imaginary`
-  takes the resizing out of PHP and `previewgenerator` builds the thumbnails
-  before anything asks. Pre-generating the whole array was tried once and
-  filled the SSD, so this is scoped to `nextcloud.previewDirs` in
-  `settings.nix` (`Photos`); everything else still gets its thumbnail the first
-  time it is opened, just not in bulk. Two units, because the app queues only
-  what Nextcloud itself wrote: `nextcloud-preview-pregenerate` drains that
-  queue hourly, which covers web, WebDAV and sync-client uploads, and
-  `nextcloud-preview-generate` walks `previewDirs` nightly at
-  `nextcloud.previewOnCalendar` for everything that arrived on the array some
-  other way and fired no event. The nightly pass is hours the first time and
-  minutes afterwards - a file that already has a thumbnail is skipped - and
-  `just warm-previews` is the same unit by hand. Both carry an `ExecCondition`
-  that skips the run while `/` has less than `nextcloud.previewMinFreeGB` free,
-  so a full disk shows up as a skipped unit rather than a wedged one. The sizes
-  are re-asserted before every run because app config lives in the database;
-  only powers of four up to `preview_max_x/y` survive, and the 2048 "max"
-  preview Nextcloud caches beside them is what actually costs. The cache lives
-  in `/var/lib/nextcloud/data/appdata_*/preview` and `just disk` breaks it out.
-  A `.nomedia` file in any folder skips that folder.
-- **Nextcloud Memories** replaces the stock `photos` app that
-  `nextcloud-disable-apps` turns off. `just index-photos` does the first pass
-  over a library that was already on the array; after that its own job indexes
-  from `nextcloud-cron`. That job defaults to walking *every* external storage,
-  which is the one thing `files_no_background_scan` exists to prevent, so
-  `memories.index.mode` is set to the timeline only and the timeline defaults
-  to `previewDirs`. The binaries it normally ships - its own `exiftool` and the
-  `go-vod` transcoder - are replaced by the nixpkgs package, which patches the
-  store paths into the app and rejects any attempt to set them, so the config
-  here names no binary. Transcoding is turned on (upstream ships it off) and
-  pointed at QSV, the same driver stack Jellyfin uses; go-vod runs as a child
-  of a php-fpm worker, which is why the render node is granted on that unit and
-  its scratch directories are tmpfiles rather than a `CacheDirectory` (the unit
-  itself runs as root, only the pool runs as `nextcloud`). All of it lives in
-  `override.config.php`, so Settings > Memories will appear to save and have no
-  effect; `memories.vod.disable` and `memories.vod.vaapi` in
-  `modules/nextcloud.nix` are what to turn if playback misbehaves.
+- **Nextcloud** is trimmed to file sharing: `nextcloud-disable-apps` turns the
+  stock dashboard, activity, photos and similar apps off on every boot, cron
+  runs every 15 minutes. `previewgenerator` and `memories` are the exception -
+  they are `extraApps`, so Nix owns their directories and `nextcloud-setup`
+  re-enables them on every start. Never install or update either from the app
+  store: a newer copy in `store-apps` shadows the pinned one. Upgrade one major
+  version at a time (`nextcloud35` only once 34 has migrated).
+- **Nextcloud previews.** Built ahead of time rather than when the browser asks,
+  which is what made a photo folder crawl. Pre-generating the whole array filled
+  the SSD once, so it is scoped to `nextcloud.previewDirs` in `settings.nix`;
+  everything else still gets its thumbnail on first open, just not in bulk. Two
+  units, because the app only queues what Nextcloud itself wrote:
+  `nextcloud-preview-pregenerate` drains that queue hourly (uploads), and
+  `nextcloud-preview-generate` walks `previewDirs` nightly for everything that
+  arrived on the array some other way. The nightly pass is hours the first time
+  and minutes after; `just warm-previews` is the same unit by hand. Both skip
+  while `/` has less than `nextcloud.previewMinFreeGB` free. The cache is
+  `/var/lib/nextcloud/data/appdata_*/preview`, broken out by `just disk`; a
+  `.nomedia` file skips a folder.
+- **Nextcloud Memories** replaces the stock `photos` app. `just index-photos`
+  does the first pass over an existing library; after that its own job indexes
+  from cron - scoped by `memories.index.mode`, because the default walks every
+  external storage. exiftool and the `go-vod` transcoder come from the nixpkgs
+  package, which patches the paths in and rejects any attempt to set them.
+  Transcoding is on (upstream ships it off) and uses QSV; go-vod runs as a child
+  of php-fpm, which is why the render node is granted on that unit. Everything
+  here is in `override.config.php`, so Settings > Memories appears to save and
+  has no effect.
 - **How Nextcloud notices a file it did not write.** Three ways, because
   `files_no_background_scan` keeps cron off the array. Each mount is created
   with `filesystem_check_changes 1`, so opening a folder re-checks it - that
@@ -244,56 +223,48 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   same unit by hand. A mount that does not exist yet is reported and skipped,
   so one gap cannot cost the others their scan.
 - **Storage** (`modules/storage.nix`): two 4 TB disks as one mdadm RAID1
-  mirror, ext4, mounted at `/mnt/storage` with the directories listed in
-  `storage.dirs`. `just storage` prints the array state; `mdmonitor` logs a
-  degraded array through `systemd-cat`, `smartd` warns about a dying disk,
-  and `mdraid-scrub` read-checks the mirror on the first Saturday of the
-  month (`storage.scrubOnCalendar`), which takes hours at low priority.
-  Assembly is by homehost, so there is no `ARRAY` line to keep in sync, and
-  the mount is by filesystem label, so the config holds before the array
-  exists: `mdadm --create ... --homehost=lab --name=storage` over one
-  `FD00` partition per disk, then `mkfs.ext4 -L storage`. The mount is
-  `nofail`, and every unit that writes there waits on it with
-  `RequiresMountsFor` rather than risk building a tree on the SSD.
-  One rule holds the tree together: every service that touches it is in
-  `lab`, writes with `UMask=0002`, and the directories carry setgid plus a
-  default `g::rwX` ACL. `storage-dirs` re-asserts `ak:lab` and `2775` on
-  every boot, and the ACL is what makes the creating process's umask
-  irrelevant, so `nextcloud`, `paperless`, `jellyfin` and `ak` can write each
-  other's files. That cheap pass covers the directories, not their contents,
-  and `cp -a`, `rsync -a` or a copy made as root re-apply the source modes
-  over the inherited ACL - so the unit also holds a recursive repair, guarded
-  by the stamp in `/mnt/storage/.storage-dirs`. The stamp is a hash of the
-  directory list and the owner: change `storage.dirs` and the next boot walks
-  the array once to chown, chmod, setgid and re-ACL it, then never again.
-  `just fix-perms` drops the stamp to force that pass by hand.
-  A udev rule sets a 30-minute ATA standby timer on whichever devices carry
-  the RAID superblock, so no serial is hardcoded and it survives the
-  enclosure re-enumerating; a USB bridge that rejects the command is ignored,
-  and the enclosure's own idle timer is then what matters. `just storage`
-  prints the power state. `storage.dirs` is the only list: Nextcloud mounts
-  every one of them as external storage on boot, and every unit that
-  touches the array is ordered after `storage-dirs` - Jellyfin included,
-  because a library scan against an unmounted array empties the library.
-  Jellyfin's own libraries are still pointed at
-  `/mnt/storage/{Movies,Music,Shows}` by hand in its dashboard.
+  mirror, ext4 at `/mnt/storage`, directories from `storage.dirs`. Assembly is
+  by homehost and the mount is by filesystem label, so no disk, UUID or
+  `/dev/mdN` appears in the repo and the config holds before the array exists:
+  `mdadm --create ... --homehost=lab --name=storage` over one `FD00` partition
+  per disk, then `mkfs.ext4 -L storage`. The mount is `nofail`, and every unit
+  that writes there waits on it with `RequiresMountsFor` rather than risk
+  building a tree on the SSD - Jellyfin included, because a library scan against
+  an unmounted array empties the library.
+
+  One rule holds the tree together: every service that touches it is in `lab`,
+  writes with `UMask=0002`, and the directories carry setgid plus a default
+  `g::rwX` ACL, which is what makes the creating process's umask irrelevant.
+  `storage-dirs` re-asserts that on every boot. It covers the directories, not
+  their contents - `cp -a`, `rsync -a` or a copy made as root re-apply the
+  source modes - so the unit also holds a recursive repair, guarded by a stamp
+  in `/mnt/storage/.storage-dirs` that hashes the directory list and owner.
+  Change `storage.dirs` and the next boot walks the array once, then never
+  again; `just fix-perms` forces that pass by hand.
+
+  Health and power: `just storage` prints array state and whether the disks are
+  spinning, `mdmonitor` logs a degraded array through `systemd-cat`, `smartd`
+  warns about a dying disk, and `mdraid-scrub` read-checks the mirror on the
+  first Saturday (`storage.scrubOnCalendar`). A udev rule sets the 30-minute ATA
+  standby timer on whichever devices carry the RAID superblock, so no serial is
+  hardcoded; a USB bridge that rejects the command is ignored and the
+  enclosure's own idle timer takes over. Jellyfin's libraries still have to be
+  pointed at `/mnt/storage/{Movies,Music,Shows}` by hand in its dashboard.
 - **Paperless** keeps its documents in `/mnt/storage/Documents/Paperless`
-  (`paperless.dir`, `Documents/Paperless` in Nextcloud). Drop a scan into
-  `consume/` by any route and inotify picks it up; unparsable files stay
-  behind in `consume/`. What it keeps is `media/documents/originals` - the
-  file as it arrived - and `media/documents/archive`, the OCR'd PDF/A, both
-  readable through Nextcloud as long as nothing renames them behind the
-  database's back. The units run with `UMask=0002` rather than upstream's
-  0066, which is what makes a new document readable outside paperless at all;
-  paperless copies a file's mode along with the file, so the default ACL does
-  not cover this. In exchange `/var/lib/paperless` is pinned to 0700, because
-  the database and the secret key live there.
+  (`paperless.dir`). Drop a scan into `consume/` by any route and inotify picks
+  it up; unparsable files stay behind there. It keeps
+  `media/documents/originals` and `media/documents/archive` (the OCR'd PDF/A),
+  both readable through Nextcloud as long as nothing renames them behind the
+  database's back. The units run with `UMask=0002` rather than upstream's 0066,
+  which is what makes a new document readable outside paperless at all -
+  paperless copies a file's mode along with the file, so the ACL does not cover
+  this. In exchange `/var/lib/paperless` is pinned to 0700, for the database and
+  the secret key.
 - **Jellyfin hardware transcoding** (Intel QuickSync) still has to be
   enabled in Dashboard > Playback.
-- **Jellyfin's scheduled tasks are the one thing this repo cannot set.** They
-  live in the service's own data dir, not in nixpkgs. Leave them running and
-  the library scan wakes the array twice a day for nothing, so turn the
-  periodic trigger off under Dashboard > Scheduled Tasks and scan by hand
+- **Jellyfin's scheduled tasks live in its own data dir, not in nixpkgs.**
+  Left running, the library scan wakes the array twice a day for nothing - turn
+  the periodic trigger off under Dashboard > Scheduled Tasks and scan by hand
   after adding media. The same dashboard owns the listen port, which is why
   `ports.jellyfin` only describes what is already in `network.xml`.
 - **Formatting** is checked in CI (`nix fmt`), `hardware-configuration.nix`

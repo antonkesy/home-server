@@ -13,30 +13,25 @@ let
   occ = lib.getExe config.services.nextcloud.occ;
   ncfg = settings.nextcloud;
 
-  # a previewDir that is not also a mount would never be backfilled by anything
   unknownPreviewDirs = lib.subtractLists settings.storage.dirs ncfg.previewDirs;
 
-  # previewgenerator intersects these with the powers of four it derives from
-  # preview_max_x/y (64, 256, 1024 here), so anything else in the list is
-  # silently dropped. 256 is what the file list and the memories grid ask for;
-  # the 2048 "max" preview nextcloud caches alongside it is the one that costs
+  # previewgenerator intersects these with the powers of four below
+  # preview_max_x/y, so anything else in the list is silently dropped
   previewSizes = {
     squareSizes = "256";
     widthSizes = "256";
     heightSizes = "256";
   };
 
-  # app config lives in the database, so re-asserted before every run, the way
-  # the mounts are
+  # app config lives in the database, so re-asserted before every run
   assertSizes = lib.concatStringsSep "\n" (
     lib.mapAttrsToList (
       key: value: "${occ} config:app:set previewgenerator ${key} --value=${lib.escapeShellArg value}"
     ) previewSizes
   );
 
-  # previews go to /var/lib/nextcloud on the SSD, and the run that would fill it
-  # is exactly the one that must not happen. an ExecCondition makes systemd mark
-  # the unit skipped rather than failed, so the next run still tries
+  # previews land on the SSD; as an ExecCondition a low-disk run is skipped,
+  # not failed
   freeSpace = pkgs.writeShellScript "nextcloud-preview-free-space" ''
     free=$(${lib.getExe' pkgs.coreutils "df"} --output=avail --block-size=1G / \
       | ${lib.getExe' pkgs.coreutils "tail"} -n1 \
@@ -78,8 +73,8 @@ let
 
   forEachMount = f: lib.concatStringsSep "\n" (lib.mapAttrsToList f mounts);
 
-  # `/<user>/files/<dir>` for every user and every previewDir; previewgenerator
-  # reads the user back out of the path, so no account name is written down here
+  # previewgenerator reads the user back out of the path, so no account name
+  # is written down here
   forEachPreviewPath = ''
     paths=()
     while read -r uid; do
@@ -87,9 +82,8 @@ let
     done < <(${occ} user:list --output=json | jq -r 'keys[]')
   '';
 
-  # shared by the two preview units. both read originals off the array and write
-  # thumbnails to /var/lib/nextcloud, so neither needs a UMask - nothing of
-  # theirs lands on the array
+  # shared by the two preview units. no UMask: thumbnails go to
+  # /var/lib/nextcloud, nothing of theirs lands on the array
   previewService = {
     after = [ "nextcloud-external-storage.service" ];
     unitConfig.RequiresMountsFor = [ settings.storage.root ];
@@ -97,12 +91,10 @@ let
     serviceConfig = {
       Type = "oneshot";
       User = "nextcloud";
-      # both must pass; either one failing is a skip, not an error
       ExecCondition = [
         "${occ} status --exit-code"
         "${freeSpace}"
       ];
-      # the array is asleep most of the time and neither run is urgent
       Nice = 10;
       IOSchedulingClass = "idle";
       # a first pass over a photo tree outlives anything shorter
@@ -183,37 +175,32 @@ in
       preview_max_memory = 512;
 
       # the php-fpm pool sets env[PATH] itself, so a worker never sees
-      # systemd.services.phpfpm-nextcloud.path and OC\Preview\Movie finds no
-      # ffmpeg on the web request path. nextcloud takes ffprobe from beside it
+      # systemd.services.phpfpm-nextcloud.path; without this OC\Preview\Movie
+      # finds no ffmpeg on the web request path
       preview_ffmpeg_path = lib.getExe pkgs.ffmpeg-headless;
 
-      # memories. the nixpkgs package patches its own exiftool, ffmpeg, ffprobe
-      # and go-vod paths into the app and refuses to let anything set them, so
-      # nothing below names a binary
+      # memories. the nixpkgs package patches exiftool, ffmpeg, ffprobe and
+      # go-vod into the app and rejects any attempt to set them, so nothing
+      # below names a binary
 
-      # upstream: 1, i.e. the cron job walks every external storage - 3.6 T of
-      # video - for five minutes every quarter hour, which is the one thing
-      # files_no_background_scan exists to prevent. 2 is the timeline only
+      # upstream: 1, i.e. the cron job walks every external storage, which is
+      # what files_no_background_scan exists to prevent. 2 is the timeline only
       "memories.index.mode" = "2";
-      # ';' separated; the same directories the previews are built for
+      # ';' separated
       "memories.timeline.default_path" = lib.concatMapStringsSep ";" (d: "/${d}") ncfg.previewDirs;
 
-      # upstream: true, i.e. videos are served as they lie. go-vod is started by
-      # a php-fpm worker and inherits that unit's devices, which is what the
-      # serviceConfig below is for
+      # upstream: true, i.e. videos are served as they lie
       "memories.vod.disable" = false;
       # QSV, the driver stack jellyfin already pulls in (modules/jellyfin.nix)
       "memories.vod.vaapi" = true;
-      # php-fpm runs with PrivateTmp, so the default under /tmp is a different
-      # directory per unit and is thrown away on every restart. these hold the
-      # copies memories makes of its own binaries, and go-vod's segments
+      # php-fpm runs with PrivateTmp, so the default under /tmp is per-unit and
+      # thrown away on every restart
       "memories.vod.tempdir" = "/var/cache/nextcloud-go-vod";
       "memories.exiftool.tmp" = "/var/cache/nextcloud-memories";
     };
     maxUploadSize = "4G";
 
-    # resizes out of process; previewgenerator (below) then builds the
-    # thumbnails for settings.nextcloud.previewDirs before a browser asks
+    # resizes out of process
     imaginary.enable = true;
 
     # keep in step with `package` above
@@ -221,7 +208,7 @@ in
       inherit (pkgs.nextcloud34Packages.apps) previewgenerator memories;
     };
     # extraApps on its own switches the app store off; the apps installed by
-    # hand from it - and kept in the backup - are still wanted
+    # hand are still wanted
     appstoreEnable = true;
 
     # upstream's sizes are below what nextcloud 34 needs; an overflowing opcache recompiles per request
@@ -238,7 +225,7 @@ in
   };
 
   # the array is group-writable by setgid + default ACL (modules/storage.nix);
-  # render/video are the QSV nodes go-vod transcodes on, same as jellyfin
+  # render/video are the QSV nodes go-vod transcodes on
   users.users.nextcloud.extraGroups = [
     settings.group
     "render"
@@ -258,12 +245,11 @@ in
 
   # 0002 like paperless (modules/paperless.nix): what nextcloud writes to the
   # array stays writable for ak and the other services. its own state dir is
-  # 0750 nextcloud:nextcloud, so nothing there is loosened
+  # 0750, so nothing there is loosened
   systemd.services.nextcloud-cron.serviceConfig.UMask = "0002";
 
-  # the php-fpm unit itself runs as root - only the pool runs as nextcloud - so
-  # a CacheDirectory= here would be root-owned and the workers could not write
-  # in it
+  # not CacheDirectory=: the php-fpm unit runs as root and only the pool runs
+  # as nextcloud, so the directory would be root-owned
   systemd.tmpfiles.rules = [
     "d /var/cache/nextcloud-go-vod 0750 nextcloud nextcloud -"
     "d /var/cache/nextcloud-memories 0750 nextcloud nextcloud -"
@@ -271,9 +257,8 @@ in
 
   systemd.services.phpfpm-nextcloud.serviceConfig = {
     UMask = "0002";
-    # memories starts go-vod as a child of a php-fpm worker, so the render node
-    # has to be reachable from this unit rather than from one of ours. upstream
-    # phpfpm sets PrivateDevices, which hides /dev/dri entirely
+    # go-vod runs as a child of a php-fpm worker, and upstream phpfpm sets
+    # PrivateDevices, which hides /dev/dri entirely
     PrivateDevices = lib.mkForce false;
     DeviceAllow = [ "/dev/dri/renderD128 rw" ];
   };
@@ -303,10 +288,9 @@ in
   # upstream: 5m
   systemd.timers.nextcloud-cron.timerConfig.OnUnitActiveSec = lib.mkForce "15m";
 
-  # previewgenerator queues only what nextcloud itself wrote (NodeWrittenEvent),
-  # i.e. web and WebDAV uploads. a file that arrived on the array and was picked
-  # up by a scan never enters that queue, so this is the cheap top-up and
-  # nextcloud-preview-generate below is what actually covers the array
+  # previewgenerator queues only what nextcloud itself wrote, i.e. uploads. a
+  # file that arrived on the array and was picked up by a scan never enters that
+  # queue - nextcloud-preview-generate below is what covers those
   systemd.services.nextcloud-preview-pregenerate = previewService // {
     description = "build the queued nextcloud previews";
     script = ''
@@ -322,7 +306,6 @@ in
     wantedBy = [ "timers.target" ];
     timerConfig = {
       OnCalendar = "hourly";
-      # one catch-up run after downtime, not one per missed hour
       Persistent = true;
       RandomizedDelaySec = "5min";
       Unit = "nextcloud-preview-pregenerate.service";
@@ -330,8 +313,8 @@ in
   };
 
   # the array side: everything in previewDirs, however it got there. hours on
-  # the first pass, minutes once the thumbnails exist - a file that already has
-  # one is skipped. `just warm-previews` is the same unit by hand
+  # the first pass, minutes after - a file that has a preview is skipped.
+  # `just warm-previews` is the same unit by hand
   systemd.services.nextcloud-preview-generate = previewService // {
     description = "build the missing previews for the photo directories";
     script = ''
@@ -359,9 +342,8 @@ in
     };
   };
 
-  # memories indexes on its own from nextcloud-cron, five minutes per run and
-  # scoped to the timeline by memories.index.mode; what it is slowest at is the
-  # first pass over a library that was already on the array - `just index-photos`
+  # memories indexes on its own from nextcloud-cron; this is the first pass
+  # over a library that was already on the array - `just index-photos`
   systemd.services.nextcloud-memories-index = {
     description = "index the photo directories for memories";
     after = [ "nextcloud-external-storage.service" ];
@@ -378,8 +360,7 @@ in
     script = ''
       set -euo pipefail
 
-      # memories takes one --path per run, relative to the user's own root -
-      # unlike previewgenerator, which wants /<user>/files/<dir>
+      # one --path per run, relative to the user's own root
       while read -r uid; do
       ${lib.concatMapStringsSep "\n  " (
         dir: ''${occ} memories:index --user "$uid" --path ${lib.escapeShellArg "/${dir}"}''
@@ -452,8 +433,7 @@ in
     '';
   };
 
-  # lab is the only writer now, so this sees everything; `just scan` is the repair
-  # path for a tree changed while the watch was down
+  # `just scan` is the repair path for a tree changed while the watch was down
   systemd.services.nextcloud-media-watch = {
     wantedBy = [ "multi-user.target" ];
     after = [ "nextcloud-external-storage.service" ];

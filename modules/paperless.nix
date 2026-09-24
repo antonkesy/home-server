@@ -60,9 +60,8 @@ in
 
   systemd.services = lib.mkMerge [
     # upstream: 0066, so a consumed document lands 0600 and nothing outside
-    # paperless can read it - not ak, not nextcloud, which share the tree
-    # through the group. paperless copies the mode along with the file, so the
-    # default ACL alone does not cover this
+    # paperless can read it. paperless copies the mode along with the file, so
+    # the default ACL alone does not cover this
     (lib.genAttrs names (_: {
       serviceConfig.UMask = lib.mkForce "0002";
     }))
