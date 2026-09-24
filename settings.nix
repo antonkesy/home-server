@@ -63,6 +63,16 @@ in
     dir = "${storageRoot}/Documents/Paperless";
   };
 
+  # Nextcloud thumbnails (modules/nextcloud.nix)
+  nextcloud = {
+    # which storage.dirs get their previews built ahead of time. pre-generating
+    # the whole array once filled the SSD; everything else still gets a
+    # thumbnail the first time it is opened, just not in bulk
+    previewDirs = [ "Photos" ];
+    # the hourly pre-generate run skips while / has less than this free
+    previewMinFreeGB = 50;
+  };
+
   # `just backup`, `just restore`
   backup = {
     # lab's own archives, under the user-facing Backups

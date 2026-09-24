@@ -189,6 +189,33 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   the stock dashboard, activity, photos and similar apps off on every boot,
   cron runs every 15 minutes. Upgrade one major version at a time
   (`nextcloud35` only once 34 has migrated, see `nextcloud-occ status`).
+- **Nextcloud previews.** A thumbnail used to be built the moment the browser
+  asked for one: read the whole original off the array, decode and resize it,
+  per image, per size, which is why a folder of photos crawled. `imaginary`
+  takes the resizing out of PHP, and `previewgenerator` now builds the
+  thumbnails before anything asks. Pre-generating the whole array was tried
+  once and filled the SSD, so the bulk pass is scoped to
+  `nextcloud.previewDirs` in `settings.nix` (`Photos`) and asks only for the
+  sizes the UI actually uses; everything else still gets its thumbnail the
+  first time it is opened. `nextcloud-preview-pregenerate` runs hourly over
+  what changed since the last run and skips itself while `/` has less than
+  `nextcloud.previewMinFreeGB` free. The app only ever queues files it saw
+  change, so a library that predates it needs `just warm-previews` once - it
+  reads every original in those directories and takes hours. The cache lives
+  in `/var/lib/nextcloud/data/appdata_*/preview`; `just disk` breaks the usage
+  down per cache and media dir.
+- **Nextcloud Memories** replaces the stock `photos` app that
+  `nextcloud-disable-apps` turns off. The binaries it normally ships - its own
+  `exiftool` and the `go-vod` transcoder - are replaced by the nixpkgs package,
+  which patches the store paths straight into the app and rejects any attempt
+  to set them, so the config here is only the two switches: transcoding is
+  turned on (upstream ships it off) and pointed at QSV, the same driver stack
+  Jellyfin uses. go-vod runs as a child of php-fpm, which is why the render
+  node is granted on that unit and not on one of ours. Both switches live in
+  `override.config.php`, so Settings > Memories cannot change them;
+  `memories.vod.disable` and `memories.vod.vaapi` in `modules/nextcloud.nix`
+  are what to turn if playback misbehaves. `nextcloud-memories-index` does the
+  first pass over an existing library at boot and is a no-op afterwards.
 - **How Nextcloud notices a file it did not write.** Three ways, because
   `files_no_background_scan` keeps cron off the array. Each mount is created
   with `filesystem_check_changes 1`, so opening a folder re-checks it - that

@@ -39,7 +39,7 @@ rollback:
 
 # Unit status
 status:
-    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service podman-pihole.service pihole-domains.service lab-backup.timer || true
+    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service podman-pihole.service pihole-domains.service lab-backup.timer nextcloud-preview-pregenerate.timer nextcloud-memories-index.service || true
 
 # Snapshot config + secrets; destination defaults to settings.nix
 backup dest="":
@@ -82,6 +82,22 @@ fix-perms:
 scan:
     sudo systemctl start --no-block nextcloud-media-scan.service
     sudo journalctl -u nextcloud-media-scan -f -n 50
+
+# One-off: build the missing thumbnails for settings.nix nextcloud.previewDirs
+warm-previews:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # reads every original in those directories once; the hourly
+    # nextcloud-preview-pregenerate timer keeps up from then on
+    mapfile -t dirs < <(nix eval --json --file "{{ settings }}" nextcloud.previewDirs | jq -r '.[]')
+    mapfile -t users < <(sudo -u nextcloud nextcloud-occ user:list --output=json | jq -r 'keys[]')
+    paths=()
+    for u in "${users[@]}"; do
+      for d in "${dirs[@]}"; do paths+=("--path=/$u/files/$d"); done
+    done
+    df -h /
+    sudo -u nextcloud nextcloud-occ preview:generate-all -vv "${paths[@]}"
+    df -h /
 
 # Garbage-collect; also drops the rollback generations
 clean:

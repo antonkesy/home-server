@@ -11,6 +11,10 @@ let
   storage = settings.storage.root;
   host = config.networking.hostName;
   occ = lib.getExe config.services.nextcloud.occ;
+  ncfg = settings.nextcloud;
+
+  # a previewDir that is not also a mount would never be backfilled by anything
+  unknownPreviewDirs = lib.subtractLists settings.storage.dirs ncfg.previewDirs;
 
   # OC\Preview\Movie needs ffmpeg; the module puts it on no unit's path
   previewTools = [ pkgs.ffmpeg-headless ];
@@ -60,6 +64,13 @@ let
   };
 in
 {
+  assertions = [
+    {
+      assertion = unknownPreviewDirs == [ ];
+      message = "settings.nextcloud.previewDirs: not in storage.dirs: ${lib.concatStringsSep ", " unknownPreviewDirs}";
+    }
+  ];
+
   services.nextcloud = {
     enable = true;
     # one major version per upgrade
@@ -107,11 +118,28 @@ in
       jpeg_quality = 60;
       # MB per preview job
       preview_max_memory = 512;
+
+      # the nixpkgs memories package patches its own exiftool, ffmpeg, ffprobe
+      # and go-vod paths into the app and refuses to let anything set them, so
+      # only the switches are left here. upstream default is true, i.e. videos
+      # are served as they lie
+      "memories.vod.disable" = false;
+      # QSV, the driver stack jellyfin already pulls in (modules/jellyfin.nix)
+      "memories.vod.vaapi" = true;
     };
     maxUploadSize = "4G";
 
-    # resizes out of process; previews are still built on demand, pre-generating the media filled the SSD
+    # resizes out of process; previewgenerator (below) then builds the
+    # thumbnails for settings.nextcloud.previewDirs before a browser asks
     imaginary.enable = true;
+
+    # keep in step with `package` above
+    extraApps = {
+      inherit (pkgs.nextcloud34Packages.apps) previewgenerator memories;
+    };
+    # extraApps on its own switches the app store off; the apps installed by
+    # hand from it - and kept in the backup - are still wanted
+    appstoreEnable = true;
 
     # upstream's sizes are below what nextcloud 34 needs; an overflowing opcache recompiles per request
     phpOptions = {
@@ -126,8 +154,13 @@ in
     };
   };
 
-  # the array is group-writable by setgid + default ACL (modules/storage.nix)
-  users.users.nextcloud.extraGroups = [ settings.group ];
+  # the array is group-writable by setgid + default ACL (modules/storage.nix);
+  # render/video are the QSV nodes go-vod transcodes on, same as jellyfin
+  users.users.nextcloud.extraGroups = [
+    settings.group
+    "render"
+    "video"
+  ];
 
   # upstream: :80, which would not match overwritehost
   services.nginx.virtualHosts.${host}.listen = [
@@ -143,8 +176,15 @@ in
   # 0002 like paperless (modules/paperless.nix): what nextcloud writes to the
   # array stays writable for ak and the other services. its own state dir is
   # 0750 nextcloud:nextcloud, so nothing there is loosened
-  systemd.services.phpfpm-nextcloud.serviceConfig.UMask = "0002";
   systemd.services.nextcloud-cron.serviceConfig.UMask = "0002";
+
+  systemd.services.phpfpm-nextcloud.serviceConfig = {
+    UMask = "0002";
+    # memories starts go-vod as a child of php-fpm, so the render node has to be
+    # reachable from this unit rather than from one of ours
+    DeviceAllow = [ "/dev/dri/renderD128 rw" ];
+    PrivateDevices = lib.mkForce false;
+  };
 
   # a file share only; app state lives in the database, so re-asserted every boot
   systemd.services.nextcloud-disable-apps = {
@@ -170,6 +210,75 @@ in
 
   # upstream: 5m
   systemd.timers.nextcloud-cron.timerConfig.OnUnitActiveSec = lib.mkForce "15m";
+
+  # previewgenerator only ever queues files it saw change, so this keeps up
+  # with new ones; the backfill over what was already on the array when the app
+  # arrived is `just warm-previews`. the sizes live in the database, so they are
+  # re-asserted here rather than set once by hand
+  systemd.services.nextcloud-preview-pregenerate = {
+    description = "build the queued nextcloud previews";
+    after = [ "nextcloud-setup.service" ];
+    # df/tr for the space guard below
+    path = previewTools ++ [ pkgs.coreutils ];
+    serviceConfig = {
+      Type = "oneshot";
+      User = "nextcloud";
+      # the guard the module puts on nextcloud-cron
+      ExecCondition = "${occ} status --exit-code";
+      # a batch of video thumbnails reads headers one file at a time
+      TimeoutStartSec = "2h";
+    };
+    script = ''
+      set -euo pipefail
+
+      # pre-generating the whole array once filled the SSD. previews land in
+      # /var/lib/nextcloud/data/appdata_*/preview, so a run that would eat the
+      # last of / is skipped rather than left half done
+      free=$(df --output=avail -BG / | tail -n1 | tr -dc '0-9')
+      if [ "$free" -lt ${toString ncfg.previewMinFreeGB} ]; then
+        echo "only ''${free}G free on / - skipping"
+        exit 0
+      fi
+
+      # upstream also asks for 1024px squares and 1920px widths, which is what
+      # makes a preview cache larger than the originals. these are the sizes
+      # the files list and memories actually request
+      ${occ} config:app:set previewgenerator squareSizes --value="32 256"
+      ${occ} config:app:set previewgenerator widthSizes --value="256 384"
+      ${occ} config:app:set previewgenerator heightSizes --value="256"
+
+      ${occ} preview:pre-generate
+    '';
+  };
+
+  systemd.timers.nextcloud-preview-pregenerate = {
+    wantedBy = [ "timers.target" ];
+    after = [ "nextcloud-setup.service" ];
+    timerConfig = {
+      OnBootSec = "15m";
+      OnUnitActiveSec = "1h";
+      Persistent = true;
+      RandomizedDelaySec = "5min";
+      Unit = "nextcloud-preview-pregenerate.service";
+    };
+  };
+
+  # memories picks up new files from its own background job; this is the first
+  # pass over a library that was already on the array, and a no-op afterwards
+  systemd.services.nextcloud-memories-index = {
+    description = "index the existing photos for memories";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "nextcloud-media-scan.service" ];
+    unitConfig.RequiresMountsFor = [ settings.storage.root ];
+    serviceConfig = {
+      Type = "oneshot";
+      User = "nextcloud";
+      ExecCondition = "${occ} status --exit-code";
+      ExecStart = "${occ} memories:index";
+      # reads exif out of every photo it has not seen
+      TimeoutStartSec = "2h";
+    };
+  };
 
   # external mounts live in the database, so reconciled on every boot
   systemd.services.nextcloud-external-storage = {
