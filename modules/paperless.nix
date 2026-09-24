@@ -11,12 +11,14 @@ let
   consume = "${paperless.dir}/consume";
   media = "${paperless.dir}/media";
 
-  units = [
-    "paperless-consumer.service"
-    "paperless-scheduler.service"
-    "paperless-task-queue.service"
-    "paperless-web.service"
+  names = [
+    "paperless-consumer"
+    "paperless-scheduler"
+    "paperless-task-queue"
+    "paperless-web"
   ];
+
+  units = map (name: "${name}.service") names;
 in
 {
   services.paperless = {
@@ -51,26 +53,43 @@ in
   systemd.tmpfiles.settings."10-paperless".${consume} = lib.mkForce { };
   systemd.tmpfiles.settings."10-paperless".${media} = lib.mkForce { };
 
-  # ProtectSystem=strict + ReadWritePaths: a missing dir fails the unit before any ExecStartPre
-  systemd.services.paperless-storage-dirs = {
-    description = "create the paperless directories on the storage array";
-    requiredBy = units;
-    before = units;
-    unitConfig.RequiresMountsFor = [ paperless.dir ];
-    path = [ pkgs.coreutils ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      User = settings.user;
-      Group = settings.group;
-    };
-    script = ''
-      set -euo pipefail
+  # upstream leaves the state dir 0755, which the UMask below would fill with a
+  # world-readable database and secret key. the directory is what keeps them in
+  systemd.tmpfiles.settings."10-paperless"."/var/lib/paperless".d.mode = lib.mkForce "0700";
+  systemd.tmpfiles.settings."10-paperless"."/var/lib/paperless/index".d.mode = lib.mkForce "0700";
 
-      mkdir -p ${lib.escapeShellArg consume} ${lib.escapeShellArg media}
-    '';
-  };
+  systemd.services = lib.mkMerge [
+    # upstream: 0066, so a consumed document lands 0600 and nothing outside
+    # paperless can read it - not ak, not nextcloud, which share the tree
+    # through the group. paperless copies the mode along with the file, so the
+    # default ACL alone does not cover this
+    (lib.genAttrs names (_: {
+      serviceConfig.UMask = lib.mkForce "0002";
+    }))
 
-  # exits hard when the consume dir is missing; upstream's 100ms backoff would burn the start limit
-  systemd.services.paperless-consumer.serviceConfig.RestartSec = "1min";
+    {
+      # ProtectSystem=strict + ReadWritePaths: a missing dir fails the unit before any ExecStartPre
+      paperless-storage-dirs = {
+        description = "create the paperless directories on the storage array";
+        requiredBy = units;
+        before = units;
+        unitConfig.RequiresMountsFor = [ paperless.dir ];
+        path = [ pkgs.coreutils ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          User = settings.user;
+          Group = settings.group;
+        };
+        script = ''
+          set -euo pipefail
+
+          mkdir -p ${lib.escapeShellArg consume} ${lib.escapeShellArg media}
+        '';
+      };
+
+      # exits hard when the consume dir is missing; upstream's 100ms backoff would burn the start limit
+      paperless-consumer.serviceConfig.RestartSec = "1min";
+    }
+  ];
 }

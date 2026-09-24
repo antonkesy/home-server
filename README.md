@@ -222,7 +222,14 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
 - **Paperless** keeps its documents in `/mnt/storage/Documents/Paperless`
   (`paperless.dir`, `Documents/Paperless` in Nextcloud). Drop a scan into
   `consume/` by any route and inotify picks it up; unparsable files stay
-  behind in `consume/`.
+  behind in `consume/`. What it keeps is `media/documents/originals` - the
+  file as it arrived - and `media/documents/archive`, the OCR'd PDF/A, both
+  readable through Nextcloud as long as nothing renames them behind the
+  database's back. The units run with `UMask=0002` rather than upstream's
+  0066, which is what makes a new document readable outside paperless at all;
+  paperless copies a file's mode along with the file, so the default ACL does
+  not cover this. In exchange `/var/lib/paperless` is pinned to 0700, because
+  the database and the secret key live there.
 - **Jellyfin hardware transcoding** (Intel QuickSync) still has to be
   enabled in Dashboard > Playback.
 - **Jellyfin's scheduled tasks are the one thing this repo cannot set.** They
