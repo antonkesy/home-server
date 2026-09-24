@@ -68,23 +68,15 @@ storage:
 logs unit:
     sudo journalctl -u "{{ unit }}" -f -n 100
 
-# Re-assert ownership, modes and ACLs over the whole array; safe to re-run
+# Force storage-dirs' recursive repair; it normally runs on its own
 fix-perms:
     #!/usr/bin/env bash
     set -euo pipefail
-    # plain attrset: readable without evaluating the flake
-    cfg=$(nix eval --json --file "{{ settings }}" storage)
-    root=$(jq -r .root <<<"$cfg")
-    mapfile -t dirs < <(jq -r --arg r "$root" '.dirs[] | $r + "/" + .' <<<"$cfg")
-    owner="$(nix eval --raw --file "{{ settings }}" user):$(nix eval --raw --file "{{ settings }}" group)"
-    # only the contents; storage-dirs re-asserts the directories themselves on
-    # every boot. a metadata walk, but it keeps the disks spinning throughout
-    sudo chown -R "$owner" "${dirs[@]}"
-    # capital X: execute on directories, not on every media file
-    sudo chmod -R g+rwX "${dirs[@]}"
-    sudo find "${dirs[@]}" -type d -exec chmod g+s {} +
-    sudo setfacl -R -m d:g::rwX -m g::rwX "${dirs[@]}"
-    echo "done - follow with: just scan"
+    root=$(nix eval --raw --file "{{ settings }}" storage.root)
+    # dropping the stamp is what makes the next run walk the whole array
+    sudo rm -f "$root/.storage-dirs"
+    sudo systemctl restart storage-dirs.service
+    sudo journalctl -u storage-dirs -n 20 --no-pager
 
 # Index files Nextcloud has not seen (also runs from the watcher)
 scan:

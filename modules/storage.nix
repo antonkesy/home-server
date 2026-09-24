@@ -8,8 +8,23 @@
 let
   inherit (settings) storage;
 
+  trees = map (name: "${storage.root}/${name}") storage.dirs;
+
   # the root too: a directory ak creates there then inherits the ACL
-  dirs = [ storage.root ] ++ map (name: "${storage.root}/${name}") storage.dirs;
+  dirs = [ storage.root ] ++ trees;
+
+  # what the tree was last repaired for; a change here re-runs the recursive
+  # pass once, and nothing else does
+  stamp = "${storage.root}/.storage-dirs";
+  stampValue = builtins.hashString "sha256" (
+    lib.concatStringsSep ":" (
+      [
+        settings.user
+        settings.group
+      ]
+      ++ dirs
+    )
+  );
 
   # everything that reads or writes the tree; same shape as gen-secrets (modules/secrets.nix)
   consumers = [
@@ -89,21 +104,39 @@ in
     requiredBy = consumers;
     before = consumers;
     unitConfig.RequiresMountsFor = [ storage.root ];
-    path = [ pkgs.acl ];
+    path = with pkgs; [
+      acl
+      coreutils
+      findutils
+    ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
+      # the recursive pass walks every inode on the array
+      TimeoutStartSec = "30min";
     };
     # setgid plus a default ACL: ext4 has no file_mode=, so without this a file
-    # nextcloud writes under umask 022 is unwritable by ak and the other way round.
-    # only these directories, not their contents - `just fix-perms` repairs a
-    # tree that was copied in as root
+    # nextcloud writes under umask 022 is unwritable by ak and the other way round
     script = ''
       set -euo pipefail
 
       install -d -o ${settings.user} -g ${settings.group} -m 2775 \
         ${lib.escapeShellArgs dirs}
       setfacl -m d:g::rwX -m g::rwX ${lib.escapeShellArgs dirs}
+
+      # the pass above covers the directories themselves; their contents keep
+      # whatever they arrived with, and `cp -a`, `rsync -a` or a copy made as
+      # root re-apply the source modes over the inherited ACL. repairing that
+      # means walking the array, so it happens only when the scheme changed
+      if [ "$(cat ${stamp} 2>/dev/null || true)" != ${stampValue} ]; then
+        echo "repairing ${toString (builtins.length trees)} directories"
+        chown -R ${settings.user}:${settings.group} ${lib.escapeShellArgs trees}
+        # capital X: execute on directories, not on every media file
+        chmod -R g+rwX ${lib.escapeShellArgs trees}
+        find ${lib.escapeShellArgs trees} -type d -exec chmod g+s {} +
+        setfacl -R -m d:g::rwX -m g::rwX ${lib.escapeShellArgs trees}
+        printf '%s' ${stampValue} > ${stamp}
+      fi
     '';
   };
 

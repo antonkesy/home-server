@@ -189,6 +189,17 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   the stock dashboard, activity, photos and similar apps off on every boot,
   cron runs every 15 minutes. Upgrade one major version at a time
   (`nextcloud35` only once 34 has migrated, see `nextcloud-occ status`).
+- **How Nextcloud notices a file it did not write.** Three ways, because
+  `files_no_background_scan` keeps cron off the array. Each mount is created
+  with `filesystem_check_changes 1`, so opening a folder re-checks it - that
+  is what covers a file the moment you look for it. `nextcloud-media-watch`
+  maps an inotify event to the mount it happened in and starts
+  `nextcloud-media-scan@<mount>`, which indexes that one storage; only
+  Paperless' `consume/` is pruned from the watch, since it churns on every
+  document eaten. And `nextcloud-media-scan` indexes all of them once at
+  boot, for whatever changed while the watch was down - `just scan` is the
+  same unit by hand. A mount that does not exist yet is reported and skipped,
+  so one gap cannot cost the others their scan.
 - **Storage** (`modules/storage.nix`): two 4 TB disks as one mdadm RAID1
   mirror, ext4, mounted at `/mnt/storage` with the directories listed in
   `storage.dirs`. `just storage` prints the array state; `mdmonitor` logs a
@@ -201,14 +212,18 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   `FD00` partition per disk, then `mkfs.ext4 -L storage`. The mount is
   `nofail`, and every unit that writes there waits on it with
   `RequiresMountsFor` rather than risk building a tree on the SSD.
-  `storage-dirs` re-asserts `ak:lab` and `2775` on every boot, plus a
-  default ACL, which is what makes the creating process's umask irrelevant
-  and lets `nextcloud`, `paperless`, `jellyfin` and `ak` write each other's
-  files. It covers the array root and the listed directories, not their
-  contents: a tree copied in as root keeps its `root:root`, and `cp -a` or
-  `rsync -a` re-apply the source modes over the inherited ACL. `just
-  fix-perms` repairs that once, recursively; `just scan` after it, because
-  Nextcloud caches a permission per file.
+  One rule holds the tree together: every service that touches it is in
+  `lab`, writes with `UMask=0002`, and the directories carry setgid plus a
+  default `g::rwX` ACL. `storage-dirs` re-asserts `ak:lab` and `2775` on
+  every boot, and the ACL is what makes the creating process's umask
+  irrelevant, so `nextcloud`, `paperless`, `jellyfin` and `ak` can write each
+  other's files. That cheap pass covers the directories, not their contents,
+  and `cp -a`, `rsync -a` or a copy made as root re-apply the source modes
+  over the inherited ACL - so the unit also holds a recursive repair, guarded
+  by the stamp in `/mnt/storage/.storage-dirs`. The stamp is a hash of the
+  directory list and the owner: change `storage.dirs` and the next boot walks
+  the array once to chown, chmod, setgid and re-ACL it, then never again.
+  `just fix-perms` drops the stamp to force that pass by hand.
   A udev rule sets a 30-minute ATA standby timer on whichever devices carry
   the RAID superblock, so no serial is hardcoded and it survives the
   enclosure re-enumerating; a USB bridge that rejects the command is ignored,

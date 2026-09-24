@@ -60,6 +60,9 @@ in
     serviceConfig = {
       Type = "oneshot";
       ExecStart = lib.getExe backup;
+      # the archive lands in a nextcloud external storage; group-writable like
+      # everything else on the array (modules/storage.nix)
+      UMask = "0002";
     };
   };
 

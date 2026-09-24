@@ -19,15 +19,45 @@ let
   # as "Local" external storage; the whole tree, lab's own backups included
   mounts = lib.genAttrs settings.storage.dirs (name: "${storage}/${name}");
 
-  # `mount_id_of <name>` from one files_external:list call
+  # `mount_id_of <name>` and `scan <name>` over one files_external:list call
   mountIdFn = ''
     mounts_json=$(${occ} files_external:list --output=json)
     mount_id_of() {
       jq -r --arg m "/$1" '.[] | select(.mount_point == $m) | .mount_id' <<<"$mounts_json"
     }
+    # a directory added to settings.nix but not mounted yet is reported, not
+    # failed: the unit that creates it runs first on the next boot
+    scan() {
+      local id
+      id=$(mount_id_of "$1")
+      [ -n "$id" ] || { echo "no mount for $1"; return 0; }
+      ${occ} files_external:scan "$id"
+    }
+    option() {
+      local id
+      id=$(mount_id_of "$1")
+      [ -n "$id" ] || { echo "no mount for $1"; return 0; }
+      ${occ} files_external:option "$id" "$2" "$3"
+    }
   '';
 
   forEachMount = f: lib.concatStringsSep "\n" (lib.mapAttrsToList f mounts);
+
+  # shared by the scan-one and scan-all units below. ordering only: a `wants`
+  # would re-run the (oneshot, not RemainAfterExit) external-storage unit on
+  # every single scan, and multi-user.target pulls it in at boot anyway
+  scanService = {
+    after = [ "nextcloud-external-storage.service" ];
+    unitConfig.RequiresMountsFor = [ settings.storage.root ];
+    path = with pkgs; [ jq ];
+    serviceConfig = {
+      Type = "oneshot";
+      User = "nextcloud";
+      ExecCondition = "${occ} status --exit-code";
+      # a first scan of 3.6 T outlives the 90s default
+      TimeoutStartSec = "30min";
+    };
+  };
 in
 {
   services.nextcloud = {
@@ -110,6 +140,12 @@ in
   systemd.services.phpfpm-nextcloud.path = previewTools;
   systemd.services.nextcloud-cron.path = previewTools;
 
+  # 0002 like paperless (modules/paperless.nix): what nextcloud writes to the
+  # array stays writable for ak and the other services. its own state dir is
+  # 0750 nextcloud:nextcloud, so nothing there is loosened
+  systemd.services.phpfpm-nextcloud.serviceConfig.UMask = "0002";
+  systemd.services.nextcloud-cron.serviceConfig.UMask = "0002";
+
   # a file share only; app state lives in the database, so re-asserted every boot
   systemd.services.nextcloud-disable-apps = {
     wantedBy = [ "multi-user.target" ];
@@ -159,28 +195,43 @@ in
           fi
         ''
       )}
+
+      # the snapshot predates whatever was just created
+      mounts_json=$(${occ} files_external:list --output=json)
+
+      # upstream: 0, i.e. nextcloud trusts its index and never looks again. 1
+      # re-checks the directory you open, which is what makes a file that
+      # arrived past the watcher show up at all. re-asserted, not created-with:
+      # an existing mount would never get it otherwise
+      ${forEachMount (name: _: "option ${name} filesystem_check_changes 1")}
     '';
   };
 
-  # nextcloud only indexes what it wrote itself; started by the watcher below or `just scan`
-  systemd.services.nextcloud-media-scan = {
-    after = [ "nextcloud-external-storage.service" ];
-    wants = [ "nextcloud-external-storage.service" ];
-    unitConfig.RequiresMountsFor = [ settings.storage.root ];
-    path = with pkgs; [ jq ];
-    serviceConfig = {
-      Type = "oneshot";
-      User = "nextcloud";
-      ExecCondition = "${occ} status --exit-code";
-      # a first scan of 3.6 T outlives the 90s default
-      TimeoutStartSec = "30min";
-    };
+  # one mount, started by the watcher below for the tree that changed
+  systemd.services."nextcloud-media-scan@" = scanService // {
+    description = "index one external storage";
+    scriptArgs = "%i";
     script = ''
       set -euo pipefail
 
       ${mountIdFn}
 
-      ${forEachMount (name: _: ''${occ} files_external:scan "$(mount_id_of ${name})"'')}
+      scan "$1"
+    '';
+  };
+
+  # every mount: `just scan`, and once at boot for whatever changed while the
+  # watch was down
+  systemd.services.nextcloud-media-scan = scanService // {
+    description = "index every external storage";
+    wantedBy = [ "multi-user.target" ];
+    script = ''
+      set -euo pipefail
+
+      ${mountIdFn}
+
+      # one bad mount must not cost the others their scan
+      ${forEachMount (name: _: ''scan ${name} || echo "scan of ${name} failed"'')}
     '';
   };
 
@@ -199,16 +250,32 @@ in
     script = ''
       set -euo pipefail
 
-      # @path prunes paperless' tree: each consumed document would trigger a full scan
+      known=${lib.escapeShellArg " ${lib.concatStringsSep " " (lib.attrNames mounts)} "}
+      declare -A pending
+
+      # an event names a file; the scan takes the mount it sits in
+      note() {
+        local rel top
+        rel=''${1#${storage}/}
+        top=''${rel%%/*}
+        case "$known" in *" $top "*) pending[$top]=1 ;; esac
+      }
+
+      # @path prunes paperless' consume dir: it churns on every document eaten,
+      # while media/ underneath is exactly what has to be indexed
       inotifywait --monitor --recursive --quiet --format '%w%f' \
         --event close_write --event create --event delete \
         --event moved_to --event moved_from \
-        ${lib.escapeShellArgs (lib.attrValues mounts ++ [ "@${settings.paperless.dir}" ])} |
+        ${lib.escapeShellArgs (lib.attrValues mounts ++ [ "@${settings.paperless.dir}/consume" ])} |
       while read -r changed; do
-        echo "changed: $changed"
-        # collapse a burst into one scan
-        while read -r -t 120 _; do :; done
-        systemctl start --no-block nextcloud-media-scan.service
+        note "$changed"
+        # collapse a burst, then scan every mount it touched
+        while read -r -t 10 more; do note "$more"; done
+        for name in "''${!pending[@]}"; do
+          echo "changed: $name"
+          systemctl start --no-block "nextcloud-media-scan@$name.service"
+        done
+        pending=()
       done
     '';
   };
