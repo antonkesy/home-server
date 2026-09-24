@@ -69,7 +69,7 @@ flowchart TD
   subgraph raid["RAID1 - /mnt/storage"]
     med["Movies / Music / Shows<br>Audiobooks / Soundtracks<br>eBooks / Photos"]
     doc["Documents/Paperless<br>consume + media"]
-    arc["Archive / ak"]
+    arc["Archive"]
     bak["Backups<br>Backups/lab"]
   end
 
