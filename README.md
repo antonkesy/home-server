@@ -2,9 +2,9 @@
 
 [![check](https://github.com/antonkesy/home-server/actions/workflows/check.yml/badge.svg)](https://github.com/antonkesy/home-server/actions/workflows/check.yml)
 
-Home server (`lab`) running Home Assistant, Immich, Jellyfin, Nextcloud,
-Paperless-ngx, Pi-hole, MusicGrabber, BookOrbit and Tailscale, built from a
-flake.
+Home server (`lab`) running Home Assistant, Immich, Jellyfin, Audiobookshelf,
+Nextcloud, Paperless-ngx, Pi-hole, MusicGrabber, BookOrbit and Tailscale,
+built from a flake.
 
 ## Setup
 
@@ -57,6 +57,7 @@ flowchart TD
     has["home-assistant :8123"]
     ncb["nginx :8080<br>phpfpm-nextcloud, imaginary"]
     jfb["jellyfin :8096"]
+    abs["audiobookshelf :13378"]
     plb["paperless :28981<br>scheduler, web, consumer, task-queue"]
     imb["immich :2283<br>server, machine-learning"]
     mgb["musicgrabber in podman<br>:38274"]
@@ -66,11 +67,11 @@ flowchart TD
   subgraph ssdg["SSD - /var/lib"]
     pg[("postgresql")]
     rd[("redis")]
-    st["paperless db + index<br>immich thumbnails<br>hass, jellyfin, pi-hole, bookorbit state"]
+    st["paperless db + index<br>immich thumbnails<br>hass, jellyfin, audiobookshelf, pi-hole, bookorbit state"]
   end
 
   subgraph raid["RAID1 - /mnt/storage"]
-    med["Movies / Music / Shows<br>Audiobooks / Soundtracks<br>eBooks"]
+    med["Movies / Music / Shows<br>Audiobooks / Podcasts / Soundtracks<br>eBooks"]
     pho["Photos<br>Photos/Immich uploads"]
     doc["Documents/Paperless<br>consume + media"]
     arc["Archive"]
@@ -79,7 +80,7 @@ flowchart TD
 
   client --> ssh & ph & has
   remote["tailnet peer"] --> ts --> client
-  client --> ncb & jfb & plb & imb & mgb & bob
+  client --> ncb & jfb & abs & plb & imb & mgb & bob
   mgb --> med
   bob --> pg
   bob --> med
@@ -88,6 +89,8 @@ flowchart TD
   ncb --> pg & rd
   ncb --> med & pho & doc & arc & bak
   jfb --> med
+  abs --> med
+  abs --> st
   imb --> pg & rd & st
   imb --> pho
   plb --> doc
@@ -121,6 +124,7 @@ built into the mirror once by hand; see **Storage** below.
 | -------------- | ---------------------------------------------- | ------------------------------------------------------ |
 | Home Assistant | [http://lab:8123](http://lab:8123)             | set up on first visit                                  |
 | Jellyfin       | [http://lab:8096](http://lab:8096)             | set up on first visit                                  |
+| Audiobookshelf | [http://lab:13378](http://lab:13378)           | set up on first visit                                  |
 | Nextcloud      | [http://lab:8080](http://lab:8080)             | `/var/lib/nextcloud/admin-pass` (user `root`)          |
 | Paperless-ngx  | [http://lab:28981](http://lab:28981)           | `/var/lib/paperless/admin-pass` (user `admin`)         |
 | Immich         | [http://lab:2283](http://lab:2283)             | `/var/lib/immich/admin-pass` (user `ak@lab.fritz.box`) |
@@ -140,8 +144,8 @@ idle services cost. Only the SSD stays awake, and Pi-hole - the one service
 that runs constantly - lives entirely on it, so DNS never waits for a disk.
 
 The first read from a sleeping array waits five to ten seconds for spin-up.
-What wakes the disks: opening Immich, Jellyfin, Nextcloud, Paperless or
-BookOrbit; the
+What wakes the disks: opening Immich, Jellyfin, Audiobookshelf, Nextcloud,
+Paperless or BookOrbit; the
 02:30 Nextcloud preview run and the Immich library scan that shares its
 window; the Sunday 05:30 backup; the first-Saturday scrub and the Paperless sanity check that
 rides along with it; and any `nixos-rebuild switch` that changes `smartd`,
@@ -173,6 +177,8 @@ Nextcloud login away. Inside:
 - Paperless: database and secret key (the search index is rebuilt on start)
 - Home Assistant: `.storage` (integrations, auth, devices)
 - Jellyfin: config, library database, plugins
+- Audiobookshelf: config and database (users, progress, libraries), item
+  metadata and covers
 - Pi-hole: `pihole.toml`, `gravity.db`, `dnsmasq.d`
 - Tailscale: the node key, so a restored machine is the same node
 - MusicGrabber: its database (settings, watched playlists)
@@ -182,7 +188,7 @@ thumbnails, caches, logs, Home Assistant history. The mirror is what covers thos
 one disk dying - the archive now sits on the same machine as the state it
 backs up, so fire, theft or a dead PSU takes both. `just backup /run/media/...`
 onto an external disk now and then is the only thing that does not.
-Jellyfin, Paperless and Pi-hole are stopped for the duration of the tar, so
+Jellyfin, Audiobookshelf, Paperless and Pi-hole are stopped for the duration of the tar, so
 LAN DNS is briefly gone; the copy is compared against the staged archive
 after a sync.
 
@@ -338,6 +344,15 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   the secret key.
 - **Jellyfin hardware transcoding** (Intel QuickSync) still has to be
   enabled in Dashboard > Playback.
+- **Audiobookshelf** (`modules/audiobookshelf.nix`) serves audiobooks and
+  podcasts from the nixpkgs module, state in `/var/lib/audiobookshelf`. The
+  libraries - `/mnt/storage/Audiobooks` and `/mnt/storage/Podcasts`
+  (`audiobookshelf.*Dir`) - are added by hand in Settings > Libraries, as with
+  Jellyfin. The unit runs in `lab` with `UMask=0002`, so podcast downloads and
+  covers stored next to the item stay readable for Nextcloud and `ak`. It
+  watches the libraries with inotify and has no periodic scan of its own, so
+  it leaves a parked array alone; a podcast library with auto-download on is
+  the one thing that would wake it on a schedule.
 - **Jellyfin's scheduled tasks live in its own data dir, not in nixpkgs.**
   Left running, the library scan wakes the array twice a day for nothing - turn
   the periodic trigger off under Dashboard > Scheduled Tasks and scan by hand

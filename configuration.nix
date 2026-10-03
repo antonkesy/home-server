@@ -10,6 +10,7 @@
     ./modules/packages.nix
     ./modules/ssh.nix
     ./modules/tailscale.nix
+    ./modules/audiobookshelf.nix
     ./modules/backup.nix
     ./modules/bookorbit.nix
     ./modules/bluetooth.nix

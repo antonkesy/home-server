@@ -47,6 +47,7 @@ in
       "Music"
       "Shows"
       "Audiobooks"
+      "Podcasts"
       "Soundtracks"
       "eBooks"
       "Photos"
@@ -104,6 +105,13 @@ in
     image = "ghcr.io/bookorbit/bookorbit:3.2.0";
   };
 
+  # modules/audiobookshelf.nix: audiobooks and podcasts, read in place
+  audiobookshelf = {
+    # both in storage.dirs; added as libraries by hand in the web UI
+    audiobooksDir = "${storageRoot}/Audiobooks";
+    podcastsDir = "${storageRoot}/Podcasts";
+  };
+
   # `just backup`, `just restore`
   backup = {
     # lab's own archives, under the user-facing Backups
@@ -149,5 +157,6 @@ in
     immich = 2283;
     musicGrabber = 38274;
     bookOrbit = 3000;
+    audiobookshelf = 13378;
   };
 }

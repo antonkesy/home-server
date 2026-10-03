@@ -39,7 +39,7 @@ rollback:
 
 # Unit status
 status:
-    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service tailscaled.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service bookorbit-setup.service pihole-domains.service lab-backup.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
+    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service audiobookshelf.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service tailscaled.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service bookorbit-setup.service pihole-domains.service lab-backup.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
 
 # Join the tailnet (opens a login URL); re-run after a restore
 tailscale-up:
@@ -60,7 +60,7 @@ migrate: hardware install restore
 # Free space on / and the array, then the big directories
 disk:
     df -h / /mnt/storage
-    sudo du -shxc /var/lib/nextcloud/data /var/lib/immich /var/cache/immich /var/lib/musicgrabber /var/lib/bookorbit /var/cache/jellyfin /var/lib/jellyfin/metadata /var/lib/paperless /var/lib/hass /var/lib/pihole /var/lib/redis-nextcloud /var/lib/redis-paperless /var/lib/containers/storage 2>/dev/null || true
+    sudo du -shxc /var/lib/nextcloud/data /var/lib/immich /var/cache/immich /var/lib/musicgrabber /var/lib/bookorbit /var/cache/jellyfin /var/lib/jellyfin/metadata /var/lib/audiobookshelf/metadata /var/lib/paperless /var/lib/hass /var/lib/pihole /var/lib/redis-nextcloud /var/lib/redis-paperless /var/lib/containers/storage 2>/dev/null || true
 
 # Mirror health and disk power state; "clean" is good, "degraded" needs a disk
 storage:

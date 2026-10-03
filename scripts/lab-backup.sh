@@ -19,7 +19,7 @@ mkdir -p "$dest" || { echo "$dest unreachable" >&2; exit 1; }
 stage=$(mktemp -d /var/tmp/lab-backup.XXXXXX)
 name="$host-$(date +%Y-%m-%d-%H%M).tar.zst"
 # sqlite holders, down only for the copy
-stopped=(jellyfin.service paperless-scheduler.service paperless-task-queue.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service)
+stopped=(jellyfin.service audiobookshelf.service paperless-scheduler.service paperless-task-queue.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service)
 restarted=("${stopped[@]}")
 down=0
 cleanup() {
@@ -52,7 +52,7 @@ for p in etc/ssh/ssh_host_*_key etc/ssh/ssh_host_*_key.pub \
   var/lib/paperless/superuser-state var/lib/paperless/src-version \
   var/lib/immich/admin-pass var/lib/immich/profile \
   var/lib/bookorbit/admin-pass var/lib/bookorbit/bookorbit.env var/lib/bookorbit/data \
-  var/lib/hass var/lib/jellyfin var/lib/pihole var/lib/musicgrabber var/lib/tailscale; do
+  var/lib/hass var/lib/jellyfin var/lib/audiobookshelf var/lib/pihole var/lib/musicgrabber var/lib/tailscale; do
   [ -e "$p" ] && include+=("$p")
 done
 
@@ -74,6 +74,10 @@ tar --use-compress-program='zstd -T0' -cf "$stage/$name" --anchored --wildcards 
   --exclude='var/lib/jellyfin/data/keyframes' \
   --exclude='var/lib/jellyfin/data/subtitles' \
   --exclude='var/lib/jellyfin/data/attachments' \
+  --exclude='var/lib/audiobookshelf/metadata/cache' \
+  --exclude='var/lib/audiobookshelf/metadata/logs' \
+  --exclude='var/lib/audiobookshelf/metadata/streams' \
+  --exclude='var/lib/audiobookshelf/metadata/backups' \
   --exclude='var/lib/pihole/pihole-FTL.db*' \
   --exclude='var/lib/pihole/macvendor.db' \
   --exclude='var/lib/pihole/gravity_old.db' \

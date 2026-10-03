@@ -31,6 +31,7 @@ let
     # jellyfin reads only, but a library scan against an unmounted array
     # empties the library
     "jellyfin.service"
+    "audiobookshelf.service"
     "paperless-storage-dirs.service"
     "immich-storage-dirs.service"
     "podman-musicgrabber.service"
