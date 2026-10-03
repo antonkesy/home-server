@@ -143,10 +143,9 @@ set-uptime-kuma-pw:
     #!/usr/bin/env bash
     set -euo pipefail
     PW="$(just --justfile "{{ justfile() }}" _pw)"
-    sudo uptime-kuma-admin password "$PW"
     printf '%s' "$PW" | sudo install -m 0600 /dev/stdin /var/lib/autokuma/admin-pass
-    # autokuma logs in with the file
-    sudo systemctl restart uptime-kuma-setup.service autokuma.service
+    # uptime-kuma resets the admin to the file on start; autokuma logs in with it
+    sudo systemctl restart uptime-kuma.service uptime-kuma-setup.service autokuma.service
     echo "New Uptime Kuma password: $PW"
 
 # Rotate the Immich admin password

@@ -275,7 +275,10 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   `/`, and `lab-backup` pushes `backup` after a successful run, which goes red
   if a Sunday is missed. None of it wakes the disks. The first admin is created
   over the socket by `uptime-kuma-setup`, which also renders the push tokens
-  into the monitor files under `/run/uptime-kuma`. Notifications are the one
+  into the monitor files under `/run/uptime-kuma`; from then on every start
+  of `uptime-kuma` resets the admin to `admin-pass` straight in the database,
+  so a password changed in the UI is undone on the next boot - rotate with
+  `just set-uptime-kuma-pw` instead. Notifications are the one
   thing left to the UI: add one under Settings > Notifications and tick
   "default enabled" and "apply on all existing monitors".
 - **How Nextcloud notices a file it did not write.** Three ways, because

@@ -9,6 +9,7 @@ let
     "paperless-task-queue.service"
     "podman-pihole.service"
     "immich-setup.service"
+    "uptime-kuma.service"
     "uptime-kuma-setup.service"
     "lab-health.service"
   ];

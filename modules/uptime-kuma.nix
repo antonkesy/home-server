@@ -160,11 +160,14 @@ let
 
   pushMonitors = lib.attrNames (lib.filterAttrs (_: isPush) monitors);
 
-  # the first admin can only be created over the socket, and so can a
-  # password change; both share this client
-  adminJs = pkgs.writeText "uptime-kuma-admin.js" ''
+  kumaRoot = "${kuma}/lib/node_modules/uptime-kuma";
+  node = "${pkgs.nodejs}/bin/node";
+
+  # a fresh database has no tables until the server has migrated it, so the
+  # first admin can only be created over the socket, once the server is up
+  setupJs = pkgs.writeText "uptime-kuma-setup.js" ''
     const { io } = require("socket.io-client");
-    const [mode, url, user, newPass] = process.argv.slice(2);
+    const [url, user] = process.argv.slice(2);
     const pass = process.env.KUMA_PASSWORD;
     const fail = (m) => { console.error(m); process.exit(1); };
     const s = io(url, { transports: ["websocket"], reconnection: false });
@@ -172,40 +175,57 @@ let
     setTimeout(() => fail("timeout"), 120000);
     s.on("connect_error", (e) => fail("connect: " + e.message));
     s.on("connect", () => {
-      if (mode === "setup") {
-        s.emit("needSetup", (need) => {
-          if (!need) { console.log("already set up"); process.exit(0); }
-          s.emit("setup", user, pass, (r) => {
-            if (!r.ok) fail("setup: " + r.msg);
-            console.log("created admin " + user);
-            process.exit(0);
-          });
+      s.emit("needSetup", (need) => {
+        if (!need) { console.log("already set up"); process.exit(0); }
+        s.emit("setup", user, pass, (r) => {
+          if (!r.ok) fail("setup: " + r.msg);
+          console.log("created admin " + user);
+          process.exit(0);
         });
-      } else if (mode === "password") {
-        s.emit("login", { username: user, password: pass, token: "" }, (r) => {
-          if (!r.ok) fail("login: " + r.msg);
-          s.emit("changePassword", { currentPassword: pass, newPassword: newPass }, (r) => {
-            if (!r.ok) fail("changePassword: " + r.msg);
-            console.log("password changed");
-            process.exit(0);
-          });
-        });
-      } else fail("usage: setup|password");
+      });
     });
   '';
 
-  # `uptime-kuma-admin setup` / `uptime-kuma-admin password <new>`
-  admin = pkgs.writeShellApplication {
-    name = "uptime-kuma-admin";
-    runtimeInputs = [
-      pkgs.nodejs
-      pkgs.coreutils
-    ];
-    runtimeEnv.NODE_PATH = "${kuma}/lib/node_modules/uptime-kuma/node_modules";
+  # from the second start on, the admin is reconciled against admin-pass
+  # straight in the database, before the server comes up: an account made or
+  # changed in the UI is put back, so autokuma's login always works. runs as
+  # ExecStartPre of uptime-kuma.service, i.e. as its user with its DATA_DIR
+  reconcileJs = pkgs.writeText "uptime-kuma-reconcile.js" ''
+    const fs = require("fs");
+    const Database = require("${kumaRoot}/server/database");
+    const { R } = require("${kumaRoot}/node_modules/redbean-node");
+    const passwordHash = require("${kumaRoot}/server/password-hash");
+    const { initJWTSecret } = require("${kumaRoot}/server/util-server");
+    const user = process.argv[2];
+    const pass = fs.readFileSync(process.env.CREDENTIALS_DIRECTORY + "/admin-pass", "utf8").trim();
+    (async () => {
+      // a fresh data dir is seeded from ./db/kuma.db, relative to the package
+      process.chdir("${kumaRoot}");
+      Database.initDataDir({});
+      await Database.connect(false, false, true);
+      try {
+        let u;
+        try { u = await R.findOne("user"); } catch { console.log("no user table yet"); return; }
+        if (!u) { console.log("no admin yet"); return; }
+        if (u.username === user && passwordHash.verify(pass, u.password)) { console.log("admin matches admin-pass"); return; }
+        u.username = user;
+        u.password = await passwordHash.generate(pass);
+        await R.store(u);
+        // drops every session
+        await initJWTSecret();
+        console.log("admin reset to " + user + " with admin-pass");
+      } finally { await Database.close(); }
+    })().catch((e) => { console.error(e.message); process.exit(1); });
+  '';
+
+  # `uptime-kuma-setup`: the socket step by hand
+  setup = pkgs.writeShellApplication {
+    name = "uptime-kuma-setup";
+    runtimeInputs = [ pkgs.coreutils ];
+    runtimeEnv.NODE_PATH = "${kumaRoot}/node_modules";
     text = ''
-      mode=''${1:?setup|password}
       # by env, not argv: the password must not show in the process list
-      KUMA_PASSWORD=$(cat ${adminPass}) node ${adminJs} "$mode" ${url} ${settings.user} "''${2:-}"
+      KUMA_PASSWORD=$(cat ${adminPass}) ${node} ${setupJs} ${url} ${settings.user}
     '';
   };
 
@@ -247,8 +267,14 @@ in
     };
   };
 
+  systemd.services.uptime-kuma.serviceConfig = {
+    # the file is root's; the unit runs as a dynamic user
+    LoadCredential = [ "admin-pass:${adminPass}" ];
+    ExecStartPre = "${node} ${reconcileJs} ${settings.user}";
+  };
+
   environment.systemPackages = [
-    admin
+    setup
     push
   ];
 
@@ -286,7 +312,7 @@ in
         sleep 1
       done
 
-      ${lib.getExe admin} setup
+      ${lib.getExe setup}
 
       # autokuma runs as a dynamic user: credentials by systemd, monitors by
       # file. the push tokens in them are reachable on the LAN anyway
