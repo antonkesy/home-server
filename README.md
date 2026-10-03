@@ -125,7 +125,7 @@ built into the mirror once by hand; see **Storage** below.
 | Paperless-ngx  | [http://lab:28981](http://lab:28981)           | `/var/lib/paperless/admin-pass` (user `admin`)         |
 | Immich         | [http://lab:2283](http://lab:2283)             | `/var/lib/immich/admin-pass` (user `ak@lab.fritz.box`) |
 | MusicGrabber   | [http://lab:38274](http://lab:38274)           | none                                                   |
-| BookOrbit      | [http://lab:3000](http://lab:3000)             | `/var/lib/bookorbit/admin-pass` (user `ak`)            |
+| BookOrbit      | [http://lab:3000](http://lab:3000)             | `/var/lib/bookorbit/admin-pass` (user `ak@lab.fritz.box`) |
 | Tailscale      | -                                              | `just tailscale-up` once, logs in via browser          |
 | Pi-hole        | [http://lab:4000/admin](http://lab:4000/admin) | `/var/lib/pihole/pihole.env`                           |
 

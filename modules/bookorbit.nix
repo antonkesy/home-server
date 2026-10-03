@@ -23,7 +23,9 @@ let
   db = "bookorbit";
   pgSocket = "/run/postgresql";
 
-  # the first account; the Kobo and email links are built from APP_URL
+  # the first account. upstream wants three characters of username, which
+  # `ak` is not, so the email is the login, as with immich. the Kobo and
+  # email links are built from APP_URL
   adminEmail = "${settings.user}@${host}.${settings.lan.domain}";
   appUrl = "http://${host}.${settings.lan.domain}:${toString port}";
   api = "http://localhost:${toString port}/api/v1";
@@ -179,11 +181,14 @@ in
       fi
 
       token=$(grep '^SETUP_BOOTSTRAP_TOKEN=' ${secretsEnv} | cut -d= -f2-)
-      curl -fsS -o /dev/null -X POST "$api/auth/setup" \
+      # the body says which field it did not like
+      reply=$(curl -sS -w '\n%{http_code}' -X POST "$api/auth/setup" \
         -H "x-setup-token: $token" -H 'Content-Type: application/json' \
-        --data "$(jq -n --arg u ${lib.escapeShellArg settings.user} --arg e ${lib.escapeShellArg adminEmail} \
-          --arg p "$(cat ${adminPass})" '{username: $u, name: $u, email: $e, password: $p}')"
-      echo "created admin ${settings.user}"
+        --data "$(jq -n --arg u ${lib.escapeShellArg adminEmail} --arg n ${lib.escapeShellArg settings.user} \
+          --arg p "$(cat ${adminPass})" '{username: $u, name: $n, email: $u, password: $p}')")
+      code=''${reply##*$'\n'}
+      [ "$code" = 201 ] || { echo "setup returned $code: ''${reply%$'\n'*}" >&2; exit 1; }
+      echo "created admin ${adminEmail}"
     '';
   };
 }

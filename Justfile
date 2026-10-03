@@ -155,4 +155,4 @@ passwords:
     show paperless admin "$(sudo cat /var/lib/paperless/admin-pass 2>/dev/null || true)"
     show immich "$(nix eval --raw --file "{{ settings }}" user)@$(nix eval --raw --file "{{ settings }}" hostName).$(nix eval --raw --file "{{ settings }}" lan.domain)" "$(sudo cat /var/lib/immich/admin-pass 2>/dev/null || true)"
     show pihole - "$(sudo cut -d= -f2- /var/lib/pihole/pihole.env 2>/dev/null || true)"
-    show bookorbit "$(nix eval --raw --file "{{ settings }}" user)" "$(sudo cat /var/lib/bookorbit/admin-pass 2>/dev/null || true)"
+    show bookorbit "$(nix eval --raw --file "{{ settings }}" user)@$(nix eval --raw --file "{{ settings }}" hostName).$(nix eval --raw --file "{{ settings }}" lan.domain)" "$(sudo cat /var/lib/bookorbit/admin-pass 2>/dev/null || true)"
