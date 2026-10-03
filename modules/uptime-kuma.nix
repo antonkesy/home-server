@@ -67,6 +67,12 @@ let
       keyword = "pong";
       parent_name = "services";
     };
+    musicgrabber = {
+      name = "MusicGrabber";
+      type = "http";
+      url = "http://localhost:${toString ports.musicGrabber}/";
+      parent_name = "services";
+    };
     pihole-web = {
       name = "Pi-hole";
       type = "http";

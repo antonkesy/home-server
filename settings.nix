@@ -86,6 +86,15 @@ in
     previewOnCalendar = "02:30";
   };
 
+  # modules/musicgrabber.nix: single-track downloads from the web UI
+  musicGrabber = {
+    # one of storage.dirs; tracks land in Singles/<Artist>/ underneath, where
+    # jellyfin and nextcloud already look
+    dir = "${storageRoot}/Music";
+    # pinned; bump by hand
+    image = "g33kphr33k/musicgrabber:4.3.0";
+  };
+
   # modules/uptime-kuma.nix; the monitors themselves are in that module
   uptimeKuma = {
     # the host checks pushed to uptime kuma: mirror state, mount, free space
@@ -136,5 +145,6 @@ in
     paperless = 28981;
     immich = 2283;
     uptimeKuma = 3001;
+    musicGrabber = 38274;
   };
 }

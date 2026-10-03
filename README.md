@@ -3,7 +3,8 @@
 [![check](https://github.com/antonkesy/home-server/actions/workflows/check.yml/badge.svg)](https://github.com/antonkesy/home-server/actions/workflows/check.yml)
 
 Home server (`lab`) running Home Assistant, Immich, Jellyfin, Nextcloud,
-Paperless-ngx, Pi-hole, Uptime Kuma and Tailscale, built from a flake.
+Paperless-ngx, Pi-hole, MusicGrabber, Uptime Kuma and Tailscale, built from a
+flake.
 
 ## Setup
 
@@ -59,6 +60,7 @@ flowchart TD
     plb["paperless :28981<br>scheduler, web, consumer, task-queue"]
     imb["immich :2283<br>server, machine-learning"]
     ukb["uptime-kuma :3001<br>autokuma, lab-health"]
+    mgb["musicgrabber in podman<br>:38274"]
   end
 
   subgraph ssdg["SSD - /var/lib"]
@@ -77,7 +79,8 @@ flowchart TD
 
   client --> ssh & ph & has
   remote["tailnet peer"] --> ts --> client
-  client --> ncb & jfb & plb & imb & ukb
+  client --> ncb & jfb & plb & imb & ukb & mgb
+  mgb --> med
   ph --> st
   has --> st
   ncb --> pg & rd
@@ -122,6 +125,7 @@ built into the mirror once by hand; see **Storage** below.
 | Paperless-ngx  | `http://lab:28981`      | `/var/lib/paperless/admin-pass` (user `admin`) |
 | Immich         | `http://lab:2283`       | `/var/lib/immich/admin-pass` (user `ak@lab.fritz.box`) |
 | Uptime Kuma    | `http://lab:3001`       | `/var/lib/autokuma/admin-pass` (user `ak`)  |
+| MusicGrabber   | `http://lab:38274`      | none                                          |
 | Tailscale      | -                       | `just tailscale-up` once, logs in via browser |
 | Pi-hole        | `http://lab:4000/admin` | `/var/lib/pihole/pihole.env`                  |
 
@@ -170,6 +174,7 @@ Nextcloud login away. Inside:
 - Jellyfin: config, library database, plugins
 - Pi-hole: `pihole.toml`, `gravity.db`, `dnsmasq.d`
 - Tailscale: the node key, so a restored machine is the same node
+- MusicGrabber: its database (settings, watched playlists)
 
 Not inside: user files, media, Paperless documents, previews, Immich
 thumbnails, caches, logs, Home Assistant history, Uptime Kuma history. The mirror is what covers those, and it only covers
@@ -238,6 +243,16 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   `services.immich.settings`, so Administration > Settings is read-only in
   the UI. Transcoding is QSV; the machine-learning models unload after five
   idle minutes.
+- **MusicGrabber** (`modules/musicgrabber.nix`) is the "search, tap, done"
+  path into the music library: a podman container with `/mnt/storage/Music`
+  mounted as its library, writing `Singles/<Artist>/<Track>` as `ak:lab`,
+  mode 664 (`PUID`, `FILE_PERMISSIONS`; the group id is read with `getent` at
+  start because NixOS allocates it). Jellyfin's real-time monitoring and the
+  Nextcloud watcher pick a new file up on their own, so nothing else runs.
+  The image tag is pinned in `settings.nix` (`musicGrabber.image`); its
+  state lives on the SSD in `/var/lib/musicgrabber`. No login: it is reachable
+  on the LAN and the tailnet only - set `API_KEY` in the container
+  environment if that changes. The Jellyfin/Navidrome refresh hooks are off.
 - **Tailscale** (`modules/tailscale.nix`) makes lab reachable from outside.
   `just tailscale-up` once prints the login URL; the node key then lives in
   `/var/lib/tailscale` and is in the backup. `tailscale0` is a trusted

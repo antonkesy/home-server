@@ -15,6 +15,7 @@
     ./modules/home-assistant.nix
     ./modules/immich.nix
     ./modules/jellyfin.nix
+    ./modules/musicgrabber.nix
     ./modules/nextcloud.nix
     ./modules/pihole.nix
     ./modules/paperless.nix

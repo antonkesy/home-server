@@ -19,7 +19,7 @@ mkdir -p "$dest" || { echo "$dest unreachable" >&2; exit 1; }
 stage=$(mktemp -d /var/tmp/lab-backup.XXXXXX)
 name="$host-$(date +%Y-%m-%d-%H%M).tar.zst"
 # sqlite holders, down only for the copy
-stopped=(jellyfin.service paperless-scheduler.service paperless-task-queue.service podman-pihole.service)
+stopped=(jellyfin.service paperless-scheduler.service paperless-task-queue.service podman-pihole.service podman-musicgrabber.service)
 restarted=("${stopped[@]}")
 down=0
 cleanup() {
@@ -51,7 +51,7 @@ for p in etc/ssh/ssh_host_*_key etc/ssh/ssh_host_*_key.pub \
   var/lib/paperless/superuser-state var/lib/paperless/src-version \
   var/lib/immich/admin-pass var/lib/immich/profile \
   var/lib/autokuma/admin-pass var/lib/autokuma/push-tokens \
-  var/lib/hass var/lib/jellyfin var/lib/pihole var/lib/tailscale; do
+  var/lib/hass var/lib/jellyfin var/lib/pihole var/lib/musicgrabber var/lib/tailscale; do
   [ -e "$p" ] && include+=("$p")
 done
 
