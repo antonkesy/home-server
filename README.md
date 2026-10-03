@@ -120,18 +120,18 @@ built into the mirror once by hand; see **Storage** below.
 
 ## Services
 
-| Service        | URL                     | Credentials                                   |
-| -------------- | ----------------------- | --------------------------------------------- |
-| Home Assistant | `http://lab:8123`       | set up on first visit                         |
-| Jellyfin       | `http://lab:8096`       | set up on first visit                         |
-| Nextcloud      | `http://lab:8080`       | `/var/lib/nextcloud/admin-pass` (user `root`) |
-| Paperless-ngx  | `http://lab:28981`      | `/var/lib/paperless/admin-pass` (user `admin`) |
-| Immich         | `http://lab:2283`       | `/var/lib/immich/admin-pass` (user `ak@lab.fritz.box`) |
-| Uptime Kuma    | `http://lab:3001`       | `/var/lib/autokuma/admin-pass` (user `ak`)  |
-| MusicGrabber   | `http://lab:38274`      | none                                          |
-| BookOrbit      | `http://lab:3000`       | `/var/lib/bookorbit/admin-pass` (user `ak`)   |
-| Tailscale      | -                       | `just tailscale-up` once, logs in via browser |
-| Pi-hole        | `http://lab:4000/admin` | `/var/lib/pihole/pihole.env`                  |
+| Service        | URL                                            | Credentials                                            |
+| -------------- | ---------------------------------------------- | ------------------------------------------------------ |
+| Home Assistant | [http://lab:8123](http://lab:8123)             | set up on first visit                                  |
+| Jellyfin       | [http://lab:8096](http://lab:8096)             | set up on first visit                                  |
+| Nextcloud      | [http://lab:8080](http://lab:8080)             | `/var/lib/nextcloud/admin-pass` (user `root`)          |
+| Paperless-ngx  | [http://lab:28981](http://lab:28981)           | `/var/lib/paperless/admin-pass` (user `admin`)         |
+| Immich         | [http://lab:2283](http://lab:2283)             | `/var/lib/immich/admin-pass` (user `ak@lab.fritz.box`) |
+| Uptime Kuma    | [http://lab:3001](http://lab:3001)             | `/var/lib/autokuma/admin-pass` (user `ak`)             |
+| MusicGrabber   | [http://lab:38274](http://lab:38274)           | none                                                   |
+| BookOrbit      | [http://lab:3000](http://lab:3000)             | `/var/lib/bookorbit/admin-pass` (user `ak`)            |
+| Tailscale      | -                                              | `just tailscale-up` once, logs in via browser          |
+| Pi-hole        | [http://lab:4000/admin](http://lab:4000/admin) | `/var/lib/pihole/pihole.env`                           |
 
 `just passwords` prints them. Nextcloud, Immich, Uptime Kuma and BookOrbit
 read their file at first setup only; rotate with `just set-nextcloud-pw`,
