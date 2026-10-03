@@ -3,7 +3,7 @@
 [![check](https://github.com/antonkesy/home-server/actions/workflows/check.yml/badge.svg)](https://github.com/antonkesy/home-server/actions/workflows/check.yml)
 
 Home server (`lab`) running Home Assistant, Immich, Jellyfin, Nextcloud,
-Paperless-ngx, Pi-hole, MusicGrabber, Uptime Kuma and Tailscale, built from a
+Paperless-ngx, Pi-hole, MusicGrabber, BookOrbit and Tailscale, built from a
 flake.
 
 ## Setup
@@ -59,7 +59,6 @@ flowchart TD
     jfb["jellyfin :8096"]
     plb["paperless :28981<br>scheduler, web, consumer, task-queue"]
     imb["immich :2283<br>server, machine-learning"]
-    ukb["uptime-kuma :3001<br>autokuma, lab-health"]
     mgb["musicgrabber in podman<br>:38274"]
     bob["bookorbit in podman<br>:3000"]
   end
@@ -67,7 +66,7 @@ flowchart TD
   subgraph ssdg["SSD - /var/lib"]
     pg[("postgresql")]
     rd[("redis")]
-    st["paperless db + index<br>immich thumbnails<br>hass, jellyfin, pi-hole, uptime-kuma state"]
+    st["paperless db + index<br>immich thumbnails<br>hass, jellyfin, pi-hole, bookorbit state"]
   end
 
   subgraph raid["RAID1 - /mnt/storage"]
@@ -80,7 +79,7 @@ flowchart TD
 
   client --> ssh & ph & has
   remote["tailnet peer"] --> ts --> client
-  client --> ncb & jfb & plb & imb & ukb & mgb & bob
+  client --> ncb & jfb & plb & imb & mgb & bob
   mgb --> med
   bob --> pg
   bob --> med
@@ -91,8 +90,6 @@ flowchart TD
   jfb --> med
   imb --> pg & rd & st
   imb --> pho
-  ukb --> st
-  ukb -.-> ssh & ph & has & ncb & jfb & plb & imb & mgb & bob
   plb --> doc
   plb --> st
   tb["lab-backup.timer<br>Sun 05:30"] --> bak
@@ -127,16 +124,14 @@ built into the mirror once by hand; see **Storage** below.
 | Nextcloud      | [http://lab:8080](http://lab:8080)             | `/var/lib/nextcloud/admin-pass` (user `root`)          |
 | Paperless-ngx  | [http://lab:28981](http://lab:28981)           | `/var/lib/paperless/admin-pass` (user `admin`)         |
 | Immich         | [http://lab:2283](http://lab:2283)             | `/var/lib/immich/admin-pass` (user `ak@lab.fritz.box`) |
-| Uptime Kuma    | [http://lab:3001](http://lab:3001)             | `/var/lib/autokuma/admin-pass` (user `ak`)             |
 | MusicGrabber   | [http://lab:38274](http://lab:38274)           | none                                                   |
 | BookOrbit      | [http://lab:3000](http://lab:3000)             | `/var/lib/bookorbit/admin-pass` (user `ak`)            |
 | Tailscale      | -                                              | `just tailscale-up` once, logs in via browser          |
 | Pi-hole        | [http://lab:4000/admin](http://lab:4000/admin) | `/var/lib/pihole/pihole.env`                           |
 
-`just passwords` prints them. Nextcloud, Immich, Uptime Kuma and BookOrbit
-read their file at first setup only; rotate with `just set-nextcloud-pw`,
-`just set-immich-pw`, `just set-uptime-kuma-pw`, and Pi-hole with
-`just set-pihole-pw`.
+`just passwords` prints them. Nextcloud, Immich and BookOrbit read their
+file at first setup only; rotate with `just set-nextcloud-pw`,
+`just set-immich-pw`, and Pi-hole with `just set-pihole-pw`.
 
 Everything runs all the time and answers immediately. The power saving sits
 one level down instead: the two 4 TB disks park after 30 idle minutes
@@ -175,7 +170,6 @@ Nextcloud login away. Inside:
 - Immich: a Postgres dump (albums, people, the library index), avatars
 - BookOrbit: a Postgres dump (users, reading progress, the library index),
   the secrets, covers
-- Uptime Kuma: the admin password and the push tokens (the monitors are Nix)
 - Paperless: database and secret key (the search index is rebuilt on start)
 - Home Assistant: `.storage` (integrations, auth, devices)
 - Jellyfin: config, library database, plugins
@@ -184,7 +178,7 @@ Nextcloud login away. Inside:
 - MusicGrabber: its database (settings, watched playlists)
 
 Not inside: user files, media, Paperless documents, previews, Immich
-thumbnails, caches, logs, Home Assistant history, Uptime Kuma history. The mirror is what covers those, and it only covers
+thumbnails, caches, logs, Home Assistant history. The mirror is what covers those, and it only covers
 one disk dying - the archive now sits on the same machine as the state it
 backs up, so fire, theft or a dead PSU takes both. `just backup /run/media/...`
 onto an external disk now and then is the only thing that does not.
@@ -292,26 +286,7 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   admin console to reach the rest of the LAN through it - and keeps its own
   DNS (`--accept-dns=false`), because the Pi-hole on this host would
   otherwise be replaced by the tailnet's MagicDNS. Flags are in
-  `extraSetFlags` and re-applied on every start. The `Tailscale` push monitor
-  in Uptime Kuma is red until the first login.
-- **Uptime Kuma** watches everything else, from the box itself. The monitors
-  are Nix (`modules/uptime-kuma.nix`): one HTTP, keyword, DNS, ping or port
-  check per service, the router, the internet, SSH - URLs built from
-  `settings.ports`, so a moved port moves its monitor. AutoKuma syncs those
-  files into Uptime Kuma every minute and tags what it created `AutoKuma`:
-  edit one of those in the UI and the next sync puts it back, delete it from
-  Nix and it is gone five minutes later; anything without the tag is yours to
-  keep. Three *push* monitors cover the host: `lab-health` runs every five
-  minutes and reports the mirror (`/proc/mdstat`, the mount) and free space on
-  `/`, and `lab-backup` pushes `backup` after a successful run, which goes red
-  if a Sunday is missed. None of it wakes the disks. The first admin is created
-  over the socket by `uptime-kuma-setup`, which also renders the push tokens
-  into the monitor files under `/run/uptime-kuma`; from then on every start
-  of `uptime-kuma` resets the admin to `admin-pass` straight in the database,
-  so a password changed in the UI is undone on the next boot - rotate with
-  `just set-uptime-kuma-pw` instead. Notifications are the one
-  thing left to the UI: add one under Settings > Notifications and tick
-  "default enabled" and "apply on all existing monitors".
+  `extraSetFlags` and re-applied on every start.
 - **How Nextcloud notices a file it did not write.** Three ways, because
   `files_no_background_scan` keeps cron off the array. Each mount is created
   with `filesystem_check_changes 1`, so opening a folder re-checks it - that

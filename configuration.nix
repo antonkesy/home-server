@@ -21,7 +21,6 @@
     ./modules/pihole.nix
     ./modules/paperless.nix
     ./modules/secrets.nix
-    ./modules/uptime-kuma.nix
     ./modules/users.nix
   ];
 
