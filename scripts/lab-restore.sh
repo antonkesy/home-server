@@ -32,7 +32,7 @@ tar --zstd -xf "$archive" -C "$stage" --occurrence=1 immich.pgdump 2>/dev/null |
 systemctl stop home-assistant.service jellyfin.service \
   paperless-scheduler.service paperless-task-queue.service podman-pihole.service \
   nginx.service phpfpm-nextcloud.service nextcloud-cron.timer nextcloud-media-watch.service \
-  immich-server.service immich-machine-learning.service
+  immich-server.service immich-machine-learning.service tailscaled.service
 
 # fresh-install WALs would replay over the restored db
 rm -f /var/lib/paperless/db.sqlite3-{wal,shm,journal} \
@@ -86,7 +86,7 @@ systemctl start nextcloud-cron.timer \
   home-assistant.service podman-pihole.service \
   jellyfin.service paperless-scheduler.service nginx.service phpfpm-nextcloud.service
 systemctl start --no-block nextcloud-media-scan.service
-systemctl start immich-server.service immich-machine-learning.service
+systemctl start immich-server.service immich-machine-learning.service tailscaled.service
 systemctl start --no-block immich-setup.service
 # the restored admin password is what logs in; the monitors are re-synced
 systemctl restart uptime-kuma-setup.service autokuma.service

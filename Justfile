@@ -39,7 +39,12 @@ rollback:
 
 # Unit status
 status:
-    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service uptime-kuma.service autokuma.service lab-health.timer podman-pihole.service pihole-domains.service lab-backup.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
+    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service tailscaled.service uptime-kuma.service autokuma.service lab-health.timer podman-pihole.service pihole-domains.service lab-backup.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
+
+# Join the tailnet (opens a login URL); re-run after a restore
+tailscale-up:
+    sudo tailscale up
+    tailscale status
 
 # Snapshot config + secrets; destination defaults to settings.nix
 backup dest="":

@@ -3,7 +3,7 @@
 [![check](https://github.com/antonkesy/home-server/actions/workflows/check.yml/badge.svg)](https://github.com/antonkesy/home-server/actions/workflows/check.yml)
 
 Home server (`lab`) running Home Assistant, Immich, Jellyfin, Nextcloud,
-Paperless-ngx, Pi-hole and Uptime Kuma, built from a flake.
+Paperless-ngx, Pi-hole, Uptime Kuma and Tailscale, built from a flake.
 
 ## Setup
 
@@ -51,6 +51,7 @@ flowchart TD
 
   subgraph fw["open in the firewall"]
     ssh["sshd :22"]
+    ts["tailscaled<br>:41641/udp, tailscale0 trusted"]
     ph["pi-hole in podman<br>:53 DNS, :4000 UI"]
     has["home-assistant :8123"]
     ncb["nginx :8080<br>phpfpm-nextcloud, imaginary"]
@@ -75,6 +76,7 @@ flowchart TD
   end
 
   client --> ssh & ph & has
+  remote["tailnet peer"] --> ts --> client
   client --> ncb & jfb & plb & imb & ukb
   ph --> st
   has --> st
@@ -120,6 +122,7 @@ built into the mirror once by hand; see **Storage** below.
 | Paperless-ngx  | `http://lab:28981`      | `/var/lib/paperless/admin-pass` (user `admin`) |
 | Immich         | `http://lab:2283`       | `/var/lib/immich/admin-pass` (user `ak@lab.fritz.box`) |
 | Uptime Kuma    | `http://lab:3001`       | `/var/lib/autokuma/admin-pass` (user `ak`)  |
+| Tailscale      | -                       | `just tailscale-up` once, logs in via browser |
 | Pi-hole        | `http://lab:4000/admin` | `/var/lib/pihole/pihole.env`                  |
 
 `just passwords` prints them. Nextcloud, Immich and Uptime Kuma read their
@@ -166,6 +169,7 @@ Nextcloud login away. Inside:
 - Home Assistant: `.storage` (integrations, auth, devices)
 - Jellyfin: config, library database, plugins
 - Pi-hole: `pihole.toml`, `gravity.db`, `dnsmasq.d`
+- Tailscale: the node key, so a restored machine is the same node
 
 Not inside: user files, media, Paperless documents, previews, Immich
 thumbnails, caches, logs, Home Assistant history, Uptime Kuma history. The mirror is what covers those, and it only covers
@@ -234,6 +238,16 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   `services.immich.settings`, so Administration > Settings is read-only in
   the UI. Transcoding is QSV; the machine-learning models unload after five
   idle minutes.
+- **Tailscale** (`modules/tailscale.nix`) makes lab reachable from outside.
+  `just tailscale-up` once prints the login URL; the node key then lives in
+  `/var/lib/tailscale` and is in the backup. `tailscale0` is a trusted
+  interface, so every service answers to a tailnet peer as it would on the
+  LAN. The node advertises `192.168.178.0/24` - approve the route in the
+  admin console to reach the rest of the LAN through it - and keeps its own
+  DNS (`--accept-dns=false`), because the Pi-hole on this host would
+  otherwise be replaced by the tailnet's MagicDNS. Flags are in
+  `extraSetFlags` and re-applied on every start. The `Tailscale` push monitor
+  in Uptime Kuma is red until the first login.
 - **Uptime Kuma** watches everything else, from the box itself. The monitors
   are Nix (`modules/uptime-kuma.nix`): one HTTP, keyword, DNS, ping or port
   check per service, the router, the internet, SSH - URLs built from

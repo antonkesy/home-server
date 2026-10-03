@@ -119,6 +119,12 @@ let
       interval = 600;
       parent_name = "host";
     };
+    tailscale = {
+      name = "Tailscale";
+      type = "push";
+      interval = 600;
+      parent_name = "host";
+    };
     # pushed by lab-backup (modules/backup.nix); sunday to the next monday
     backup = {
       name = "Backup";
@@ -321,6 +327,8 @@ in
       coreutils
       gnugrep
       util-linux
+      jq
+      config.services.tailscale.package
     ];
     serviceConfig.Type = "oneshot";
     script = ''
@@ -340,6 +348,14 @@ in
         "$push" root-disk down "''${free}G free"
       else
         "$push" root-disk up "''${free}G free"
+      fi
+
+      # NeedsLogin until `just tailscale-up` has run once
+      state=$(tailscale status --json 2>/dev/null | jq -r .BackendState || echo "no tailscaled")
+      if [ "$state" = Running ]; then
+        "$push" tailscale up "$state"
+      else
+        "$push" tailscale down "$state"
       fi
     '';
   };

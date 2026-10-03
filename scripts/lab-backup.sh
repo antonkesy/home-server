@@ -51,7 +51,7 @@ for p in etc/ssh/ssh_host_*_key etc/ssh/ssh_host_*_key.pub \
   var/lib/paperless/superuser-state var/lib/paperless/src-version \
   var/lib/immich/admin-pass var/lib/immich/profile \
   var/lib/autokuma/admin-pass var/lib/autokuma/push-tokens \
-  var/lib/hass var/lib/jellyfin var/lib/pihole; do
+  var/lib/hass var/lib/jellyfin var/lib/pihole var/lib/tailscale; do
   [ -e "$p" ] && include+=("$p")
 done
 

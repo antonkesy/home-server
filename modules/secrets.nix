@@ -46,7 +46,7 @@ in
       ensure /var/lib/autokuma/admin-pass "$(pw)"
       # one token per push monitor (modules/uptime-kuma.nix)
       ensure /var/lib/autokuma/push-tokens "$(printf '%s=%s\n' \
-        storage-array "$(pw)" root-disk "$(pw)" backup "$(pw)")"
+        storage-array "$(pw)" root-disk "$(pw)" backup "$(pw)" tailscale "$(pw)")"
       ensure /var/lib/pihole/pihole.env "FTLCONF_webserver_api_password=$(pw)"
     '';
   };

@@ -9,6 +9,7 @@
     ./modules/networking.nix
     ./modules/packages.nix
     ./modules/ssh.nix
+    ./modules/tailscale.nix
     ./modules/backup.nix
     ./modules/bluetooth.nix
     ./modules/home-assistant.nix
