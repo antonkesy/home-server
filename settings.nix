@@ -95,6 +95,15 @@ in
     image = "docker.io/g33kphr33k/musicgrabber:4.3.0";
   };
 
+  # modules/bookorbit.nix: the ebook library, read in place
+  bookOrbit = {
+    # one of storage.dirs; mounted as /books, scanned where it is. uploads
+    # from the web UI land in it as ak:lab
+    dir = "${storageRoot}/eBooks";
+    # pinned; bump by hand
+    image = "ghcr.io/bookorbit/bookorbit:3.2.0";
+  };
+
   # modules/uptime-kuma.nix; the monitors themselves are in that module
   uptimeKuma = {
     # the host checks pushed to uptime kuma: mirror state, mount, free space
@@ -146,5 +155,6 @@ in
     immich = 2283;
     uptimeKuma = 3001;
     musicGrabber = 38274;
+    bookOrbit = 3000;
   };
 }

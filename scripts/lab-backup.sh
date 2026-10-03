@@ -19,7 +19,7 @@ mkdir -p "$dest" || { echo "$dest unreachable" >&2; exit 1; }
 stage=$(mktemp -d /var/tmp/lab-backup.XXXXXX)
 name="$host-$(date +%Y-%m-%d-%H%M).tar.zst"
 # sqlite holders, down only for the copy
-stopped=(jellyfin.service paperless-scheduler.service paperless-task-queue.service podman-pihole.service podman-musicgrabber.service)
+stopped=(jellyfin.service paperless-scheduler.service paperless-task-queue.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service)
 restarted=("${stopped[@]}")
 down=0
 cleanup() {
@@ -32,6 +32,7 @@ trap cleanup EXIT
 # -Z0: tar compresses it
 runuser -u postgres -- pg_dump -h /run/postgresql -Fc -Z0 --no-sync nextcloud > "$stage/nextcloud.pgdump"
 runuser -u postgres -- pg_dump -h /run/postgresql -Fc -Z0 --no-sync immich > "$stage/immich.pgdump"
+runuser -u postgres -- pg_dump -h /run/postgresql -Fc -Z0 --no-sync bookorbit > "$stage/bookorbit.pgdump"
 
 printf 'host=%s\ndate=%s\nnixos=%s\nstateVersion=%s\nnextcloud=%s\nimmich=%s\npostgresql=%s\n' \
   "$host" "$(date -Is)" "$(cat /run/current-system/nixos-version)" \
@@ -51,6 +52,7 @@ for p in etc/ssh/ssh_host_*_key etc/ssh/ssh_host_*_key.pub \
   var/lib/paperless/superuser-state var/lib/paperless/src-version \
   var/lib/immich/admin-pass var/lib/immich/profile \
   var/lib/autokuma/admin-pass var/lib/autokuma/push-tokens \
+  var/lib/bookorbit/admin-pass var/lib/bookorbit/bookorbit.env var/lib/bookorbit/data \
   var/lib/hass var/lib/jellyfin var/lib/pihole var/lib/musicgrabber var/lib/tailscale; do
   [ -e "$p" ] && include+=("$p")
 done
@@ -77,7 +79,8 @@ tar --use-compress-program='zstd -T0' -cf "$stage/$name" --anchored --wildcards 
   --exclude='var/lib/pihole/macvendor.db' \
   --exclude='var/lib/pihole/gravity_old.db' \
   --exclude='var/lib/pihole/listsCache' \
-  -C "$stage" manifest nextcloud.pgdump immich.pgdump -C / "${include[@]}" || rc=$?
+  --exclude='var/lib/bookorbit/data/book-bucket' \
+  -C "$stage" manifest nextcloud.pgdump immich.pgdump bookorbit.pgdump -C / "${include[@]}" || rc=$?
 # 1: a live home assistant file changed mid-read
 [ "$rc" -le 1 ] || exit "$rc"
 

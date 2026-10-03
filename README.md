@@ -61,6 +61,7 @@ flowchart TD
     imb["immich :2283<br>server, machine-learning"]
     ukb["uptime-kuma :3001<br>autokuma, lab-health"]
     mgb["musicgrabber in podman<br>:38274"]
+    bob["bookorbit in podman<br>:3000"]
   end
 
   subgraph ssdg["SSD - /var/lib"]
@@ -79,8 +80,10 @@ flowchart TD
 
   client --> ssh & ph & has
   remote["tailnet peer"] --> ts --> client
-  client --> ncb & jfb & plb & imb & ukb & mgb
+  client --> ncb & jfb & plb & imb & ukb & mgb & bob
   mgb --> med
+  bob --> pg
+  bob --> med
   ph --> st
   has --> st
   ncb --> pg & rd
@@ -89,7 +92,7 @@ flowchart TD
   imb --> pg & rd & st
   imb --> pho
   ukb --> st
-  ukb -.-> ssh & ph & has & ncb & jfb & plb & imb
+  ukb -.-> ssh & ph & has & ncb & jfb & plb & imb & mgb & bob
   plb --> doc
   plb --> st
   tb["lab-backup.timer<br>Sun 05:30"] --> bak
@@ -126,11 +129,12 @@ built into the mirror once by hand; see **Storage** below.
 | Immich         | `http://lab:2283`       | `/var/lib/immich/admin-pass` (user `ak@lab.fritz.box`) |
 | Uptime Kuma    | `http://lab:3001`       | `/var/lib/autokuma/admin-pass` (user `ak`)  |
 | MusicGrabber   | `http://lab:38274`      | none                                          |
+| BookOrbit      | `http://lab:3000`       | `/var/lib/bookorbit/admin-pass` (user `ak`)   |
 | Tailscale      | -                       | `just tailscale-up` once, logs in via browser |
 | Pi-hole        | `http://lab:4000/admin` | `/var/lib/pihole/pihole.env`                  |
 
-`just passwords` prints them. Nextcloud, Immich and Uptime Kuma read their
-file at first setup only; rotate with `just set-nextcloud-pw`,
+`just passwords` prints them. Nextcloud, Immich, Uptime Kuma and BookOrbit
+read their file at first setup only; rotate with `just set-nextcloud-pw`,
 `just set-immich-pw`, `just set-uptime-kuma-pw`, and Pi-hole with
 `just set-pihole-pw`.
 
@@ -141,7 +145,8 @@ idle services cost. Only the SSD stays awake, and Pi-hole - the one service
 that runs constantly - lives entirely on it, so DNS never waits for a disk.
 
 The first read from a sleeping array waits five to ten seconds for spin-up.
-What wakes the disks: opening Immich, Jellyfin, Nextcloud or Paperless; the
+What wakes the disks: opening Immich, Jellyfin, Nextcloud, Paperless or
+BookOrbit; the
 02:30 Nextcloud preview run and the Immich library scan that shares its
 window; the Sunday 05:30 backup; the first-Saturday scrub and the Paperless sanity check that
 rides along with it; and any `nixos-rebuild switch` that changes `smartd`,
@@ -168,6 +173,8 @@ Nextcloud login away. Inside:
 - the generated passwords, the SSH host keys
 - Nextcloud: `config.php`, installed apps, app data, a Postgres dump
 - Immich: a Postgres dump (albums, people, the library index), avatars
+- BookOrbit: a Postgres dump (users, reading progress, the library index),
+  the secrets, covers
 - Uptime Kuma: the admin password and the push tokens (the monitors are Nix)
 - Paperless: database and secret key (the search index is rebuilt on start)
 - Home Assistant: `.storage` (integrations, auth, devices)
@@ -258,6 +265,25 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   toggle. No login: it is reachable
   on the LAN and the tailnet only - set `API_KEY` in the container
   environment if that changes. The Jellyfin/Navidrome refresh hooks are off.
+- **BookOrbit** (`modules/bookorbit.nix`) is the ebook library: a podman
+  container with `/mnt/storage/eBooks` mounted as `/books`, read in place -
+  the files stay where Nextcloud already sees them.
+  Whatever it writes there (uploads from the web UI, renamed files if that
+  is turned on) is `ak:lab` through `PUID`/`PGID`, the group id read with
+  `getent` at start like MusicGrabber. The database is the host Postgres
+  over its socket, bind-mounted into the container and authenticated by
+  peer: the server sees uid 1000, an ident map turns that into the
+  `bookorbit` role, so there is no password. Its extensions (`vector`,
+  `pg_trgm`, `unaccent`, `uuid-ossp`) are created by `postgresql-setup`,
+  the way Immich's are. `bookorbit-setup` creates the admin over the
+  token-gated setup endpoint on every boot (a no-op once it exists); the
+  token and the JWT secret are generated into
+  `/var/lib/bookorbit/bookorbit.env` by `gen-secrets`. Covers and the
+  upload staging area live on the SSD in `/var/lib/bookorbit/data`. The
+  image tag is pinned in `settings.nix` (`bookOrbit.image`); the container
+  runs read-only with the capabilities upstream's compose grants and nothing
+  more. `APP_URL` is `http://lab.fritz.box:3000`, which is what a Kobo gets
+  told to sync against.
 - **Tailscale** (`modules/tailscale.nix`) makes lab reachable from outside.
   `just tailscale-up` once prints the login URL; the node key then lives in
   `/var/lib/tailscale` and is in the backup. `tailscale0` is a trusted

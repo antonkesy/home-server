@@ -73,6 +73,12 @@ let
       url = "http://localhost:${toString ports.musicGrabber}/";
       parent_name = "services";
     };
+    bookorbit = {
+      name = "BookOrbit";
+      type = "http";
+      url = "http://localhost:${toString ports.bookOrbit}/api/v1/health";
+      parent_name = "services";
+    };
     pihole-web = {
       name = "Pi-hole";
       type = "http";

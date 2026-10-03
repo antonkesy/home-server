@@ -28,10 +28,11 @@ echo
 tar --zstd -xf "$archive" -C "$stage" --occurrence=1 nextcloud.pgdump
 # archives from before immich have no dump; the fresh install's db then stays
 tar --zstd -xf "$archive" -C "$stage" --occurrence=1 immich.pgdump 2>/dev/null || true
+tar --zstd -xf "$archive" -C "$stage" --occurrence=1 bookorbit.pgdump 2>/dev/null || true
 
 systemctl stop home-assistant.service jellyfin.service \
   paperless-scheduler.service paperless-task-queue.service podman-pihole.service \
-  podman-musicgrabber.service nginx.service phpfpm-nextcloud.service nextcloud-cron.timer nextcloud-media-watch.service \
+  podman-musicgrabber.service podman-bookorbit.service nginx.service phpfpm-nextcloud.service nextcloud-cron.timer nextcloud-media-watch.service \
   immich-server.service immich-machine-learning.service tailscaled.service
 
 # fresh-install WALs would replay over the restored db
@@ -50,10 +51,12 @@ chown -R paperless:paperless /var/lib/paperless
 [ -d /var/lib/immich ] && chown -R immich:immich /var/lib/immich
 chown -R 1000:1000 /var/lib/pihole
 [ -d /var/lib/musicgrabber ] && chown -R 1000:1000 /var/lib/musicgrabber
+[ -d /var/lib/bookorbit/data ] && chown -R 1000:1000 /var/lib/bookorbit/data
 
 secrets=()
 for f in /var/lib/nextcloud/admin-pass /var/lib/paperless/admin-pass /var/lib/immich/admin-pass \
-  /var/lib/autokuma/admin-pass /var/lib/autokuma/push-tokens /var/lib/pihole/pihole.env; do
+  /var/lib/autokuma/admin-pass /var/lib/autokuma/push-tokens /var/lib/pihole/pihole.env \
+  /var/lib/bookorbit/admin-pass /var/lib/bookorbit/bookorbit.env; do
   [ -e "$f" ] && secrets+=("$f")
 done
 chown root:root "${secrets[@]}" /etc/ssh/ssh_host_*_key*
@@ -73,6 +76,14 @@ if [ -f "$stage/immich.pgdump" ]; then
   pg pg_restore -h /run/postgresql -d immich --no-owner --role=immich -1 --exit-on-error "$stage/immich.pgdump"
 fi
 
+if [ -f "$stage/bookorbit.pgdump" ]; then
+  pg dropdb -h /run/postgresql --force --if-exists bookorbit
+  pg createdb -h /run/postgresql -O bookorbit bookorbit
+  # the extensions, as superuser
+  systemctl restart postgresql-setup.service
+  pg pg_restore -h /run/postgresql -d bookorbit --no-owner --role=bookorbit -1 --exit-on-error "$stage/bookorbit.pgdump"
+fi
+
 # host keys changed
 systemctl restart sshd.service
 
@@ -84,11 +95,11 @@ nextcloud-occ files:scan --all --home-only
 
 systemctl start nextcloud-cron.timer \
   nextcloud-external-storage.service nextcloud-media-watch.service \
-  home-assistant.service podman-pihole.service podman-musicgrabber.service \
+  home-assistant.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service \
   jellyfin.service paperless-scheduler.service nginx.service phpfpm-nextcloud.service
 systemctl start --no-block nextcloud-media-scan.service
 systemctl start immich-server.service immich-machine-learning.service tailscaled.service
-systemctl start --no-block immich-setup.service
+systemctl start --no-block immich-setup.service bookorbit-setup.service
 # the restored admin password is what logs in; the monitors are re-synced
 systemctl restart uptime-kuma-setup.service autokuma.service
 

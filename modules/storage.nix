@@ -34,6 +34,7 @@ let
     "paperless-storage-dirs.service"
     "immich-storage-dirs.service"
     "podman-musicgrabber.service"
+    "podman-bookorbit.service"
     "nextcloud-external-storage.service"
     "nextcloud-media-scan.service"
     "nextcloud-media-watch.service"

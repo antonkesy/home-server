@@ -11,6 +11,7 @@
     ./modules/ssh.nix
     ./modules/tailscale.nix
     ./modules/backup.nix
+    ./modules/bookorbit.nix
     ./modules/bluetooth.nix
     ./modules/home-assistant.nix
     ./modules/immich.nix
