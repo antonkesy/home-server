@@ -135,7 +135,7 @@ set-immich-pw:
     PW="$(just --justfile "{{ justfile() }}" _pw)"
     s() { nix eval --raw --file "{{ settings }}" "$1"; }
     api="http://localhost:$(s ports.immich)/api"
-    email="$(s user)@$(s hostName).$(s lan.domain)"
+    email="$(s adminEmail)"
     old=$(sudo cat /var/lib/immich/admin-pass)
     token=$(curl -fsS -X POST "$api/auth/login" -H 'Content-Type: application/json' \
       --data "$(jq -n --arg e "$email" --arg p "$old" '{email: $e, password: $p}')" | jq -r .accessToken)
@@ -153,6 +153,6 @@ passwords:
     show SERVICE USER PASSWORD
     show nextcloud root "$(sudo cat /var/lib/nextcloud/admin-pass 2>/dev/null || true)"
     show paperless admin "$(sudo cat /var/lib/paperless/admin-pass 2>/dev/null || true)"
-    show immich "$(nix eval --raw --file "{{ settings }}" user)@$(nix eval --raw --file "{{ settings }}" hostName).$(nix eval --raw --file "{{ settings }}" lan.domain)" "$(sudo cat /var/lib/immich/admin-pass 2>/dev/null || true)"
+    show immich "$(nix eval --raw --file "{{ settings }}" adminEmail)" "$(sudo cat /var/lib/immich/admin-pass 2>/dev/null || true)"
     show pihole - "$(sudo cut -d= -f2- /var/lib/pihole/pihole.env 2>/dev/null || true)"
-    show bookorbit "$(nix eval --raw --file "{{ settings }}" user)@$(nix eval --raw --file "{{ settings }}" hostName).$(nix eval --raw --file "{{ settings }}" lan.domain)" "$(sudo cat /var/lib/bookorbit/admin-pass 2>/dev/null || true)"
+    show bookorbit "$(nix eval --raw --file "{{ settings }}" adminEmail)" "$(sudo cat /var/lib/bookorbit/admin-pass 2>/dev/null || true)"

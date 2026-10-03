@@ -127,15 +127,16 @@ built into the mirror once by hand; see **Storage** below.
 | Audiobookshelf | [http://lab:13378](http://lab:13378)           | set up on first visit                                  |
 | Nextcloud      | [http://lab:8080](http://lab:8080)             | `/var/lib/nextcloud/admin-pass` (user `root`)          |
 | Paperless-ngx  | [http://lab:28981](http://lab:28981)           | `/var/lib/paperless/admin-pass` (user `admin`)         |
-| Immich         | [http://lab:2283](http://lab:2283)             | `/var/lib/immich/admin-pass` (user `ak@lab.fritz.box`) |
+| Immich         | [http://lab:2283](http://lab:2283)             | `/var/lib/immich/admin-pass` (user `adminEmail`)       |
 | MusicGrabber   | [http://lab:38274](http://lab:38274)           | none                                                   |
-| BookOrbit      | [http://lab:3000](http://lab:3000)             | `/var/lib/bookorbit/admin-pass` (user `ak@lab.fritz.box`) |
+| BookOrbit      | [http://lab:3000](http://lab:3000)             | `/var/lib/bookorbit/admin-pass` (user `adminEmail`)    |
 | Tailscale      | -                                              | `just tailscale-up` once, logs in via browser          |
 | Pi-hole        | [http://lab:4000/admin](http://lab:4000/admin) | `/var/lib/pihole/pihole.env`                           |
 
-`just passwords` prints them. Nextcloud, Immich and BookOrbit read their
-file at first setup only; rotate with `just set-nextcloud-pw`,
-`just set-immich-pw`, and Pi-hole with `just set-pihole-pw`.
+`just passwords` prints them; `adminEmail` is the login from `settings.nix`.
+Nextcloud, Immich and BookOrbit read their file at first setup only; rotate
+with `just set-nextcloud-pw`, `just set-immich-pw`, and Pi-hole with
+`just set-pihole-pw`.
 
 Everything runs all the time and answers immediately. The power saving sits
 one level down instead: the two 4 TB disks park after 30 idle minutes

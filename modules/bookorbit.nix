@@ -26,7 +26,7 @@ let
   # the first account. upstream wants three characters of username, which
   # `ak` is not, so the email is the login, as with immich. the Kobo and
   # email links are built from APP_URL
-  adminEmail = "${settings.user}@${host}.${settings.lan.domain}";
+  adminEmail = settings.adminEmail;
   appUrl = "http://${host}.${settings.lan.domain}:${toString port}";
   api = "http://localhost:${toString port}/api/v1";
 

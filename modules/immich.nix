@@ -14,7 +14,7 @@ let
   mediaLocation = config.services.immich.mediaLocation;
 
   # the first account; also the owner of the external library
-  adminEmail = "${settings.user}@${host}.${settings.lan.domain}";
+  adminEmail = settings.adminEmail;
   adminPass = "/var/lib/immich/admin-pass";
 
   api = "http://localhost:${toString port}/api";

@@ -8,6 +8,8 @@ in
   # primary account; owns the storage tree
   user = "ak";
   group = "lab";
+  # the login for the services that want an email (immich, bookorbit)
+  adminEmail = "anton@kesy.de";
 
   git = {
     name = "Anton Kesy";
