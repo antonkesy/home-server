@@ -245,12 +245,17 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   idle minutes.
 - **MusicGrabber** (`modules/musicgrabber.nix`) is the "search, tap, done"
   path into the music library: a podman container with `/mnt/storage/Music`
-  mounted as its library, writing `Singles/<Artist>/<Track>` as `ak:lab`,
-  mode 664 (`PUID`, `FILE_PERMISSIONS`; the group id is read with `getent` at
+  mounted as its library, writing `<Artist>/<Album>/<nn - Track>` for albums
+  and album-attributed singles (`ALBUMS_SUBDIR`/`SINGLES_SUBDIR` are `.`,
+  `AUTO_ALBUM_SINGLES` on; a single MusicBrainz cannot place goes to
+  `<Artist>/`) as `ak:lab`, mode 664 (`PUID`, `FILE_PERMISSIONS`; the group id is read with `getent` at
   start because NixOS allocates it). Jellyfin's real-time monitoring and the
   Nextcloud watcher pick a new file up on their own, so nothing else runs.
   The image tag is pinned in `settings.nix` (`musicGrabber.image`); its
-  state lives on the SSD in `/var/lib/musicgrabber`. No login: it is reachable
+  state lives on the SSD in `/var/lib/musicgrabber`. Whole albums: Artists
+  tab or Bulk Import, pick the release; a followed artist pulls new singles
+  on its own, and new albums too with its "automatically add new albums"
+  toggle. No login: it is reachable
   on the LAN and the tailnet only - set `API_KEY` in the container
   environment if that changes. The Jellyfin/Navidrome refresh hooks are off.
 - **Tailscale** (`modules/tailscale.nix`) makes lab reachable from outside.

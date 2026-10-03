@@ -42,6 +42,12 @@ in
       MUSIC_DIR = "/music";
       DB_PATH = "/data/music_grabber.db";
       ENABLE_MUSICBRAINZ = "true";
+      # upstream: Albums/ and Singles/ under the library. "." is the root, so
+      # albums and album-attributed singles land in <Artist>/<Album>/, the
+      # layout jellyfin expects; a single without album context in <Artist>/
+      ALBUMS_SUBDIR = ".";
+      SINGLES_SUBDIR = ".";
+      AUTO_ALBUM_SINGLES = "true";
       # downloads are chowned to this; the group comes from the env file
       PUID = uid;
       # upstream: 666. group-writable is the rule on the array (modules/storage.nix)

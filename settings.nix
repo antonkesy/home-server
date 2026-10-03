@@ -88,8 +88,8 @@ in
 
   # modules/musicgrabber.nix: single-track downloads from the web UI
   musicGrabber = {
-    # one of storage.dirs; tracks land in Singles/<Artist>/ underneath, where
-    # jellyfin and nextcloud already look
+    # one of storage.dirs; downloads land in <Artist>/<Album>/ underneath,
+    # where jellyfin and nextcloud already look
     dir = "${storageRoot}/Music";
     # pinned; bump by hand. fully qualified: podman has no search registries
     image = "docker.io/g33kphr33k/musicgrabber:4.3.0";
