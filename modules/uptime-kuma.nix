@@ -168,7 +168,8 @@ let
     const pass = process.env.KUMA_PASSWORD;
     const fail = (m) => { console.error(m); process.exit(1); };
     const s = io(url, { transports: ["websocket"], reconnection: false });
-    setTimeout(() => fail("timeout"), 30000);
+    // the first start migrates the database before the socket answers
+    setTimeout(() => fail("timeout"), 120000);
     s.on("connect_error", (e) => fail("connect: " + e.message));
     s.on("connect", () => {
       if (mode === "setup") {
@@ -274,7 +275,7 @@ in
       RemainAfterExit = true;
       RuntimeDirectory = "uptime-kuma";
       RuntimeDirectoryPreserve = true;
-      TimeoutStartSec = "3min";
+      TimeoutStartSec = "5min";
     };
     script = ''
       set -euo pipefail
@@ -313,6 +314,9 @@ in
       AUTOKUMA__KUMA__URL = url;
       AUTOKUMA__DOCKER__ENABLED = "false";
       AUTOKUMA__STATIC_MONITORS = "${runDir}/monitors";
+      # its own id -> monitor map (sled); the default is under $HOME, which a
+      # dynamic user does not have
+      AUTOKUMA__DATA_PATH = "/var/lib/autokuma-state";
       AUTOKUMA__SYNC_INTERVAL = "60";
       AUTOKUMA__DELETE_GRACE_PERIOD = "300";
     };
@@ -320,6 +324,7 @@ in
       ExecStart = lib.getExe pkgs.autokuma;
       EnvironmentFile = "${runDir}/autokuma.env";
       DynamicUser = true;
+      StateDirectory = "autokuma-state";
       Restart = "on-failure";
       RestartSec = "10s";
     };
