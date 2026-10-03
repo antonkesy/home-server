@@ -91,8 +91,8 @@ in
     # one of storage.dirs; tracks land in Singles/<Artist>/ underneath, where
     # jellyfin and nextcloud already look
     dir = "${storageRoot}/Music";
-    # pinned; bump by hand
-    image = "g33kphr33k/musicgrabber:4.3.0";
+    # pinned; bump by hand. fully qualified: podman has no search registries
+    image = "docker.io/g33kphr33k/musicgrabber:4.3.0";
   };
 
   # modules/uptime-kuma.nix; the monitors themselves are in that module

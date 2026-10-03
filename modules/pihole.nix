@@ -24,7 +24,7 @@ in
   ];
 
   virtualisation.oci-containers.containers.pihole = {
-    image = "pihole/pihole:2025.11.1";
+    image = "docker.io/pihole/pihole:2025.11.1";
 
     # v6 dropped the v5 names (WEBPASSWORD, PIHOLE_DNS_, ...); set here = read-only in the web UI
     environment = {

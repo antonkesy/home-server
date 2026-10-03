@@ -16,7 +16,7 @@ let
 
   # ak's uid is fixed (modules/users.nix), lab's gid is allocated by nixos
   pgid = pkgs.writeShellScript "musicgrabber-pgid" ''
-    printf 'PGID=%s\n' "$(${lib.getExe' pkgs.glibc "getent"} group ${settings.group} | cut -d: -f3)" \
+    printf 'PGID=%s\n' "$(${lib.getExe pkgs.getent} group ${settings.group} | cut -d: -f3)" \
       > ${envFile}
   '';
 in
