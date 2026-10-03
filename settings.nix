@@ -86,6 +86,12 @@ in
     previewOnCalendar = "02:30";
   };
 
+  # modules/uptime-kuma.nix; the monitors themselves are in that module
+  uptimeKuma = {
+    # the host checks pushed to uptime kuma: mirror state, mount, free space
+    healthOnCalendar = "*:0/5";
+  };
+
   # `just backup`, `just restore`
   backup = {
     # lab's own archives, under the user-facing Backups
@@ -129,5 +135,6 @@ in
     homeAssistant = 8123;
     paperless = 28981;
     immich = 2283;
+    uptimeKuma = 3001;
   };
 }

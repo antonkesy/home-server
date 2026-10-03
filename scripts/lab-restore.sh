@@ -51,7 +51,8 @@ chown -R paperless:paperless /var/lib/paperless
 chown -R 1000:1000 /var/lib/pihole
 
 secrets=()
-for f in /var/lib/nextcloud/admin-pass /var/lib/paperless/admin-pass /var/lib/immich/admin-pass /var/lib/pihole/pihole.env; do
+for f in /var/lib/nextcloud/admin-pass /var/lib/paperless/admin-pass /var/lib/immich/admin-pass \
+  /var/lib/autokuma/admin-pass /var/lib/autokuma/push-tokens /var/lib/pihole/pihole.env; do
   [ -e "$f" ] && secrets+=("$f")
 done
 chown root:root "${secrets[@]}" /etc/ssh/ssh_host_*_key*
@@ -87,5 +88,7 @@ systemctl start nextcloud-cron.timer \
 systemctl start --no-block nextcloud-media-scan.service
 systemctl start immich-server.service immich-machine-learning.service
 systemctl start --no-block immich-setup.service
+# the restored admin password is what logs in; the monitors are re-synced
+systemctl restart uptime-kuma-setup.service autokuma.service
 
 echo "restored; check with: just status && just passwords"

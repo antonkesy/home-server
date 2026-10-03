@@ -9,6 +9,8 @@ let
     "paperless-task-queue.service"
     "podman-pihole.service"
     "immich-setup.service"
+    "uptime-kuma-setup.service"
+    "lab-health.service"
   ];
 in
 {
@@ -41,6 +43,10 @@ in
       ensure /var/lib/nextcloud/admin-pass "$(pw)"
       ensure /var/lib/paperless/admin-pass "$(pw)"
       ensure /var/lib/immich/admin-pass "$(pw)"
+      ensure /var/lib/autokuma/admin-pass "$(pw)"
+      # one token per push monitor (modules/uptime-kuma.nix)
+      ensure /var/lib/autokuma/push-tokens "$(printf '%s=%s\n' \
+        storage-array "$(pw)" root-disk "$(pw)" backup "$(pw)")"
       ensure /var/lib/pihole/pihole.env "FTLCONF_webserver_api_password=$(pw)"
     '';
   };

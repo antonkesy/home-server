@@ -64,6 +64,9 @@ in
       # the archive lands in a nextcloud external storage; group-writable like
       # everything else on the array (modules/storage.nix)
       UMask = "0002";
+      # only after a successful ExecStart: the heartbeat the `backup` monitor
+      # waits for (modules/uptime-kuma.nix)
+      ExecStartPost = "${config.system.build.lab-health-push} backup up";
     };
   };
 
