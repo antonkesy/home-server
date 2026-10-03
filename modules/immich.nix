@@ -161,10 +161,23 @@ in
         *) echo "admin-sign-up returned $code" >&2; exit 1 ;;
       esac
 
-      token=$(curl -fsS -X POST "$api/auth/login" \
+      # 401: the admin exists under another email or password (changed in the
+      # UI, or adminEmail changed after the account was made). the library is
+      # then left as it is rather than failing the switch; the hint says what
+      # to put right. anything else is a real failure
+      reply=$(curl -sS -w '\n%{http_code}' -X POST "$api/auth/login" \
         -H 'Content-Type: application/json' \
-        --data "$(jq -n --arg e "$email" --arg p "$password" '{email: $e, password: $p}')" \
-        | jq -r .accessToken)
+        --data "$(jq -n --arg e "$email" --arg p "$password" '{email: $e, password: $p}')")
+      code=''${reply##*$'\n'}
+      case "$code" in
+        201) ;;
+        401)
+          echo "login as $email failed: set the admin's email to it under Account Settings," \
+            "or its password to ${adminPass}; skipping the library" >&2
+          exit 0 ;;
+        *) echo "login returned $code" >&2; exit 1 ;;
+      esac
+      token=$(jq -r .accessToken <<<"''${reply%$'\n'*}")
       auth=(-H "Authorization: Bearer $token" -H 'Content-Type: application/json')
 
       me=$(curl -fsS "''${auth[@]}" "$api/users/me")
