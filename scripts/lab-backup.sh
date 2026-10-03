@@ -31,10 +31,11 @@ trap cleanup EXIT
 
 # -Z0: tar compresses it
 runuser -u postgres -- pg_dump -h /run/postgresql -Fc -Z0 --no-sync nextcloud > "$stage/nextcloud.pgdump"
+runuser -u postgres -- pg_dump -h /run/postgresql -Fc -Z0 --no-sync immich > "$stage/immich.pgdump"
 
-printf 'host=%s\ndate=%s\nnixos=%s\nstateVersion=%s\nnextcloud=%s\npostgresql=%s\n' \
+printf 'host=%s\ndate=%s\nnixos=%s\nstateVersion=%s\nnextcloud=%s\nimmich=%s\npostgresql=%s\n' \
   "$host" "$(date -Is)" "$(cat /run/current-system/nixos-version)" \
-  "${LAB_STATE_VERSION:?}" "${LAB_NEXTCLOUD_VERSION:?}" "${LAB_PG_VERSION:?}" > "$stage/manifest"
+  "${LAB_STATE_VERSION:?}" "${LAB_NEXTCLOUD_VERSION:?}" "${LAB_IMMICH_VERSION:?}" "${LAB_PG_VERSION:?}" > "$stage/manifest"
 
 down=1
 systemctl stop "${stopped[@]}"
@@ -48,12 +49,13 @@ for p in etc/ssh/ssh_host_*_key etc/ssh/ssh_host_*_key.pub \
   var/lib/paperless/admin-pass var/lib/paperless/db.sqlite3* \
   var/lib/paperless/nixos-paperless-secret-key.env \
   var/lib/paperless/superuser-state var/lib/paperless/src-version \
+  var/lib/immich/admin-pass var/lib/immich/profile \
   var/lib/hass var/lib/jellyfin var/lib/pihole; do
   [ -e "$p" ] && include+=("$p")
 done
 
 rc=0
-# manifest and dump first, so a restore reads them without streaming the rest
+# manifest and dumps first, so a restore reads them without streaming the rest
 tar --use-compress-program='zstd -T0' -cf "$stage/$name" --anchored --wildcards \
   --exclude='var/lib/nextcloud/config/override.config.php' \
   --exclude='var/lib/nextcloud/data/appdata_*/preview' \
@@ -74,7 +76,7 @@ tar --use-compress-program='zstd -T0' -cf "$stage/$name" --anchored --wildcards 
   --exclude='var/lib/pihole/macvendor.db' \
   --exclude='var/lib/pihole/gravity_old.db' \
   --exclude='var/lib/pihole/listsCache' \
-  -C "$stage" manifest nextcloud.pgdump -C / "${include[@]}" || rc=$?
+  -C "$stage" manifest nextcloud.pgdump immich.pgdump -C / "${include[@]}" || rc=$?
 # 1: a live home assistant file changed mid-read
 [ "$rc" -le 1 ] || exit "$rc"
 

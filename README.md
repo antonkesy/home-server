@@ -2,8 +2,8 @@
 
 [![check](https://github.com/antonkesy/home-server/actions/workflows/check.yml/badge.svg)](https://github.com/antonkesy/home-server/actions/workflows/check.yml)
 
-Home server (`lab`) running Home Assistant, Jellyfin, Nextcloud, Paperless-ngx
-and Pi-hole, built from a flake.
+Home server (`lab`) running Home Assistant, Immich, Jellyfin, Nextcloud,
+Paperless-ngx and Pi-hole, built from a flake.
 
 ## Setup
 
@@ -56,28 +56,32 @@ flowchart TD
     ncb["nginx :8080<br>phpfpm-nextcloud, imaginary"]
     jfb["jellyfin :8096"]
     plb["paperless :28981<br>scheduler, web, consumer, task-queue"]
+    imb["immich :2283<br>server, machine-learning"]
   end
 
   subgraph ssdg["SSD - /var/lib"]
     pg[("postgresql")]
     rd[("redis")]
-    st["paperless db + index<br>hass, jellyfin, pi-hole state"]
+    st["paperless db + index<br>immich thumbnails<br>hass, jellyfin, pi-hole state"]
   end
 
   subgraph raid["RAID1 - /mnt/storage"]
-    med["Movies / Music / Shows<br>Audiobooks / Soundtracks<br>eBooks / Photos"]
+    med["Movies / Music / Shows<br>Audiobooks / Soundtracks<br>eBooks"]
+    pho["Photos<br>Photos/Immich uploads"]
     doc["Documents/Paperless<br>consume + media"]
     arc["Archive"]
     bak["Backups<br>Backups/lab"]
   end
 
   client --> ssh & ph & has
-  client --> ncb & jfb & plb
+  client --> ncb & jfb & plb & imb
   ph --> st
   has --> st
   ncb --> pg & rd
-  ncb --> med & doc & arc & bak
+  ncb --> med & pho & doc & arc & bak
   jfb --> med
+  imb --> pg & rd & st
+  imb --> pho
   plb --> doc
   plb --> st
   tb["lab-backup.timer<br>Sun 05:30"] --> bak
@@ -111,10 +115,12 @@ built into the mirror once by hand; see **Storage** below.
 | Jellyfin       | `http://lab:8096`       | set up on first visit                         |
 | Nextcloud      | `http://lab:8080`       | `/var/lib/nextcloud/admin-pass` (user `root`) |
 | Paperless-ngx  | `http://lab:28981`      | `/var/lib/paperless/admin-pass` (user `admin`) |
+| Immich         | `http://lab:2283`       | `/var/lib/immich/admin-pass` (user `ak@lab.fritz.box`) |
 | Pi-hole        | `http://lab:4000/admin` | `/var/lib/pihole/pihole.env`                  |
 
-`just passwords` prints them. Nextcloud reads its file at first setup only;
-rotate with `just set-nextcloud-pw`, Pi-hole with `just set-pihole-pw`.
+`just passwords` prints them. Nextcloud and Immich read their file at first
+setup only; rotate with `just set-nextcloud-pw`, `just set-immich-pw`, and
+Pi-hole with `just set-pihole-pw`.
 
 Everything runs all the time and answers immediately. The power saving sits
 one level down instead: the two 4 TB disks park after 30 idle minutes
@@ -123,8 +129,9 @@ idle services cost. Only the SSD stays awake, and Pi-hole - the one service
 that runs constantly - lives entirely on it, so DNS never waits for a disk.
 
 The first read from a sleeping array waits five to ten seconds for spin-up.
-What wakes the disks: opening Jellyfin, Nextcloud or Paperless; the Sunday
-05:30 backup; the first-Saturday scrub and the Paperless sanity check that
+What wakes the disks: opening Immich, Jellyfin, Nextcloud or Paperless; the
+02:30 Nextcloud preview run and the Immich library scan that shares its
+window; the Sunday 05:30 backup; the first-Saturday scrub and the Paperless sanity check that
 rides along with it; and any `nixos-rebuild switch` that changes `smartd`,
 because smartd spins both disks up when it starts. Nothing else should -
 `smartd` polls with `-n standby,q` so it skips a parked disk silently, and
@@ -148,13 +155,14 @@ Nextcloud login away. Inside:
 
 - the generated passwords, the SSH host keys
 - Nextcloud: `config.php`, installed apps, app data, a Postgres dump
+- Immich: a Postgres dump (albums, people, the library index), avatars
 - Paperless: database and secret key (the search index is rebuilt on start)
 - Home Assistant: `.storage` (integrations, auth, devices)
 - Jellyfin: config, library database, plugins
 - Pi-hole: `pihole.toml`, `gravity.db`, `dnsmasq.d`
 
-Not inside: user files, media, Paperless documents, previews, caches, logs,
-Home Assistant history. The mirror is what covers those, and it only covers
+Not inside: user files, media, Paperless documents, previews, Immich
+thumbnails, caches, logs, Home Assistant history. The mirror is what covers those, and it only covers
 one disk dying - the archive now sits on the same machine as the state it
 backs up, so fire, theft or a dead PSU takes both. `just backup /run/media/...`
 onto an external disk now and then is the only thing that does not.
@@ -185,10 +193,10 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   because `fritz.box` is a real public domain.
 - **Nextcloud** is trimmed to file sharing: `nextcloud-disable-apps` turns the
   stock dashboard, activity, photos and similar apps off on every boot, cron
-  runs every 15 minutes. `previewgenerator` and `memories` are the exception -
-  they are `extraApps`, so Nix owns their directories and `nextcloud-setup`
-  re-enables them on every start. Never install or update either from the app
-  store: a newer copy in `store-apps` shadows the pinned one. Upgrade one major
+  runs every 15 minutes. `previewgenerator` is the exception - it is an
+  `extraApp`, so Nix owns its directory and `nextcloud-setup` re-enables it
+  on every start. Never install or update it from the app store: a newer copy
+  in `store-apps` shadows the pinned one. Upgrade one major
   version at a time (`nextcloud35` only once 34 has migrated).
 - **Nextcloud previews.** Built ahead of time rather than when the browser asks,
   which is what made a photo folder crawl. Pre-generating the whole array filled
@@ -202,15 +210,24 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   while `/` has less than `nextcloud.previewMinFreeGB` free. The cache is
   `/var/lib/nextcloud/data/appdata_*/preview`, broken out by `just disk`; a
   `.nomedia` file skips a folder.
-- **Nextcloud Memories** replaces the stock `photos` app. `just index-photos`
-  does the first pass over an existing library; after that its own job indexes
-  from cron - scoped by `memories.index.mode`, because the default walks every
-  external storage. exiftool and the `go-vod` transcoder come from the nixpkgs
-  package, which patches the paths in and rejects any attempt to set them.
-  Transcoding is on (upstream ships it off) and uses QSV; go-vod runs as a child
-  of php-fpm, which is why the render node is granted on that unit. Everything
-  here is in `override.config.php`, so Settings > Memories appears to save and
-  has no effect.
+- **Immich** owns the photos. `/mnt/storage/Photos` is an *external library*:
+  read-only, indexed in place, never copied - the same directory Nextcloud
+  serves as `Photos`. Uploads from the app land on the array as well, in
+  `Photos/Immich/<user>/<year>/<month>/`, which is `library/` of Immich's
+  state dir bind-mounted onto the array; that subtree is excluded from the
+  external library (`**/Immich/**`) so nothing is imported twice, and the
+  Nextcloud watcher indexes it like any other write to `Photos`. The only
+  Immich data on the SSD are thumbnails, transcodes and the database. The
+  unit writes with `UMask=0002` like everything else on the array, which is
+  what keeps an upload readable for Nextcloud; the `.immich` marker file in
+  `Photos/Immich` is Immich's mount check and stays hidden. `immich-setup`
+  creates the admin and the library over the API on every boot and queues a
+  scan (`just scan-photos` by hand); between boots Immich's own inotify watch
+  picks up new files and a nightly scan at 02:30 catches the rest, in the
+  window the preview run already wakes the disks for. Settings are in
+  `services.immich.settings`, so Administration > Settings is read-only in
+  the UI. Transcoding is QSV; the machine-learning models unload after five
+  idle minutes.
 - **How Nextcloud notices a file it did not write.** Three ways, because
   `files_no_background_scan` keeps cron off the array. Each mount is created
   with `filesystem_check_changes 1`, so opening a folder re-checks it - that

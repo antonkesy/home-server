@@ -32,6 +32,7 @@ let
     # empties the library
     "jellyfin.service"
     "paperless-storage-dirs.service"
+    "immich-storage-dirs.service"
     "nextcloud-external-storage.service"
     "nextcloud-media-scan.service"
     "nextcloud-media-watch.service"

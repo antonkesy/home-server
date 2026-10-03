@@ -26,17 +26,20 @@ echo "restoring $archive"
 tar --zstd -xOf "$archive" --occurrence=1 manifest
 echo
 tar --zstd -xf "$archive" -C "$stage" --occurrence=1 nextcloud.pgdump
+# archives from before immich have no dump; the fresh install's db then stays
+tar --zstd -xf "$archive" -C "$stage" --occurrence=1 immich.pgdump 2>/dev/null || true
 
 systemctl stop home-assistant.service jellyfin.service \
   paperless-scheduler.service paperless-task-queue.service podman-pihole.service \
-  nginx.service phpfpm-nextcloud.service nextcloud-cron.timer nextcloud-media-watch.service
+  nginx.service phpfpm-nextcloud.service nextcloud-cron.timer nextcloud-media-watch.service \
+  immich-server.service immich-machine-learning.service
 
 # fresh-install WALs would replay over the restored db
 rm -f /var/lib/paperless/db.sqlite3-{wal,shm,journal} \
   /var/lib/pihole/gravity.db-{wal,shm,journal} \
   /var/lib/jellyfin/data/*.db-{wal,shm,journal}
 
-tar --zstd -xf "$archive" -C / --anchored --exclude=manifest --exclude=nextcloud.pgdump
+tar --zstd -xf "$archive" -C / --anchored --exclude=manifest --exclude='*.pgdump'
 
 # uids differ between installs
 chown -R nextcloud:nextcloud /var/lib/nextcloud/config /var/lib/nextcloud/data
@@ -44,10 +47,11 @@ chown -R nextcloud:nextcloud /var/lib/nextcloud/config /var/lib/nextcloud/data
 chown -R hass:hass /var/lib/hass
 chown -R jellyfin:jellyfin /var/lib/jellyfin
 chown -R paperless:paperless /var/lib/paperless
+[ -d /var/lib/immich ] && chown -R immich:immich /var/lib/immich
 chown -R 1000:1000 /var/lib/pihole
 
 secrets=()
-for f in /var/lib/nextcloud/admin-pass /var/lib/paperless/admin-pass /var/lib/pihole/pihole.env; do
+for f in /var/lib/nextcloud/admin-pass /var/lib/paperless/admin-pass /var/lib/immich/admin-pass /var/lib/pihole/pihole.env; do
   [ -e "$f" ] && secrets+=("$f")
 done
 chown root:root "${secrets[@]}" /etc/ssh/ssh_host_*_key*
@@ -58,6 +62,14 @@ pg() { runuser -u postgres -- "$@"; }
 pg dropdb -h /run/postgresql --force --if-exists nextcloud
 pg createdb -h /run/postgresql -O nextcloud nextcloud
 pg pg_restore -h /run/postgresql -d nextcloud --no-owner --role=nextcloud -1 --exit-on-error "$stage/nextcloud.pgdump"
+
+if [ -f "$stage/immich.pgdump" ]; then
+  pg dropdb -h /run/postgresql --force --if-exists immich
+  pg createdb -h /run/postgresql -O immich immich
+  # the extensions (vchord, vector, ...) are created by postgresql-setup on a fresh db
+  systemctl restart postgresql-setup.service
+  pg pg_restore -h /run/postgresql -d immich --no-owner --role=immich -1 --exit-on-error "$stage/immich.pgdump"
+fi
 
 # host keys changed
 systemctl restart sshd.service
@@ -73,5 +85,7 @@ systemctl start nextcloud-cron.timer \
   home-assistant.service podman-pihole.service \
   jellyfin.service paperless-scheduler.service nginx.service phpfpm-nextcloud.service
 systemctl start --no-block nextcloud-media-scan.service
+systemctl start immich-server.service immich-machine-learning.service
+systemctl start --no-block immich-setup.service
 
 echo "restored; check with: just status && just passwords"

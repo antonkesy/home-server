@@ -39,7 +39,7 @@ rollback:
 
 # Unit status
 status:
-    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service podman-pihole.service pihole-domains.service lab-backup.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
+    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service podman-pihole.service pihole-domains.service lab-backup.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
 
 # Snapshot config + secrets; destination defaults to settings.nix
 backup dest="":
@@ -55,7 +55,7 @@ migrate: hardware install restore
 # Free space on / and the array, then the big directories
 disk:
     df -h / /mnt/storage
-    sudo du -shxc /var/lib/nextcloud/data /var/cache/nextcloud-go-vod /var/cache/nextcloud-memories /var/cache/jellyfin /var/lib/jellyfin/metadata /var/lib/paperless /var/lib/hass /var/lib/pihole /var/lib/redis-nextcloud /var/lib/redis-paperless /var/lib/containers/storage 2>/dev/null || true
+    sudo du -shxc /var/lib/nextcloud/data /var/lib/immich /var/cache/immich /var/cache/jellyfin /var/lib/jellyfin/metadata /var/lib/paperless /var/lib/hass /var/lib/pihole /var/lib/redis-nextcloud /var/lib/redis-paperless /var/lib/containers/storage 2>/dev/null || true
 
 # Mirror health and disk power state; "clean" is good, "degraded" needs a disk
 storage:
@@ -88,10 +88,10 @@ warm-previews:
     sudo systemctl start --no-block nextcloud-preview-generate.service
     sudo journalctl -u nextcloud-preview-generate -f -n 50
 
-# Index the photo directories for the Memories timeline
-index-photos:
-    sudo systemctl start --no-block nextcloud-memories-index.service
-    sudo journalctl -u nextcloud-memories-index -f -n 50
+# Re-assert the Immich external library and scan it for new photos
+scan-photos:
+    sudo systemctl restart --no-block immich-setup.service
+    sudo journalctl -u immich-setup -f -n 50
 
 # Garbage-collect; also drops the rollback generations
 clean:
@@ -123,6 +123,23 @@ set-nextcloud-pw:
     printf '%s' "$PW" | sudo install -m 0600 /dev/stdin /var/lib/nextcloud/admin-pass
     echo "New Nextcloud password: $PW"
 
+# Rotate the Immich admin password
+set-immich-pw:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    PW="$(just --justfile "{{ justfile() }}" _pw)"
+    s() { nix eval --raw --file "{{ settings }}" "$1"; }
+    api="http://localhost:$(s ports.immich)/api"
+    email="$(s user)@$(s hostName).$(s lan.domain)"
+    old=$(sudo cat /var/lib/immich/admin-pass)
+    token=$(curl -fsS -X POST "$api/auth/login" -H 'Content-Type: application/json' \
+      --data "$(jq -n --arg e "$email" --arg p "$old" '{email: $e, password: $p}')" | jq -r .accessToken)
+    uid=$(curl -fsS -H "Authorization: Bearer $token" "$api/users/me" | jq -r .id)
+    curl -fsS -o /dev/null -X PUT "$api/admin/users/$uid" -H "Authorization: Bearer $token" \
+      -H 'Content-Type: application/json' --data "$(jq -n --arg p "$PW" '{password: $p}')"
+    printf '%s' "$PW" | sudo install -m 0600 /dev/stdin /var/lib/immich/admin-pass
+    echo "New Immich password: $PW"
+
 # Print the generated service passwords
 passwords:
     #!/usr/bin/env bash
@@ -131,4 +148,5 @@ passwords:
     show SERVICE USER PASSWORD
     show nextcloud root "$(sudo cat /var/lib/nextcloud/admin-pass 2>/dev/null || true)"
     show paperless admin "$(sudo cat /var/lib/paperless/admin-pass 2>/dev/null || true)"
+    show immich "$(nix eval --raw --file "{{ settings }}" user)@$(nix eval --raw --file "{{ settings }}" hostName).$(nix eval --raw --file "{{ settings }}" lan.domain)" "$(sudo cat /var/lib/immich/admin-pass 2>/dev/null || true)"
     show pihole - "$(sudo cut -d= -f2- /var/lib/pihole/pihole.env 2>/dev/null || true)"

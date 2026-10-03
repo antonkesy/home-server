@@ -63,10 +63,22 @@ in
     dir = "${storageRoot}/Documents/Paperless";
   };
 
+  # modules/immich.nix
+  immich = {
+    # the read-only external library; one of storage.dirs
+    libraryDir = "Photos";
+    # uploads from the app; under the library dir so nextcloud sees them, and
+    # excluded from the external library so immich does not import them twice
+    uploadDir = "${storageRoot}/Photos/Immich";
+    # nightly external-library scan, in the same disk-wake window as
+    # nextcloud.previewOnCalendar
+    scanCron = "30 2 * * *";
+  };
+
   # modules/nextcloud.nix
   nextcloud = {
-    # the storage.dirs whose previews are built ahead of time; also memories'
-    # timeline. pre-generating the whole array once filled the SSD
+    # the storage.dirs whose previews are built ahead of time. pre-generating
+    # the whole array once filled the SSD
     previewDirs = [ "Photos" ];
     # a preview run is skipped while / has less free than this, in GB
     previewMinFreeGB = 50;
@@ -116,5 +128,6 @@ in
     jellyfin = 8096;
     homeAssistant = 8123;
     paperless = 28981;
+    immich = 2283;
   };
 }

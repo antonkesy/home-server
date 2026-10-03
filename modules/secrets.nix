@@ -8,6 +8,7 @@ let
     "paperless-consumer.service"
     "paperless-task-queue.service"
     "podman-pihole.service"
+    "immich-setup.service"
   ];
 in
 {
@@ -39,6 +40,7 @@ in
 
       ensure /var/lib/nextcloud/admin-pass "$(pw)"
       ensure /var/lib/paperless/admin-pass "$(pw)"
+      ensure /var/lib/immich/admin-pass "$(pw)"
       ensure /var/lib/pihole/pihole.env "FTLCONF_webserver_api_password=$(pw)"
     '';
   };

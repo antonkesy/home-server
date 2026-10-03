@@ -178,25 +178,6 @@ in
       # systemd.services.phpfpm-nextcloud.path; without this OC\Preview\Movie
       # finds no ffmpeg on the web request path
       preview_ffmpeg_path = lib.getExe pkgs.ffmpeg-headless;
-
-      # memories. the nixpkgs package patches exiftool, ffmpeg, ffprobe and
-      # go-vod into the app and rejects any attempt to set them, so nothing
-      # below names a binary
-
-      # upstream: 1, i.e. the cron job walks every external storage, which is
-      # what files_no_background_scan exists to prevent. 2 is the timeline only
-      "memories.index.mode" = "2";
-      # ';' separated
-      "memories.timeline.default_path" = lib.concatMapStringsSep ";" (d: "/${d}") ncfg.previewDirs;
-
-      # upstream: true, i.e. videos are served as they lie
-      "memories.vod.disable" = false;
-      # QSV, the driver stack jellyfin already pulls in (modules/jellyfin.nix)
-      "memories.vod.vaapi" = true;
-      # php-fpm runs with PrivateTmp, so the default under /tmp is per-unit and
-      # thrown away on every restart
-      "memories.vod.tempdir" = "/var/cache/nextcloud-go-vod";
-      "memories.exiftool.tmp" = "/var/cache/nextcloud-memories";
     };
     maxUploadSize = "4G";
 
@@ -205,7 +186,7 @@ in
 
     # keep in step with `package` above
     extraApps = {
-      inherit (pkgs.nextcloud34Packages.apps) previewgenerator memories;
+      inherit (pkgs.nextcloud34Packages.apps) previewgenerator;
     };
     # extraApps on its own switches the app store off; the apps installed by
     # hand are still wanted
@@ -224,13 +205,8 @@ in
     };
   };
 
-  # the array is group-writable by setgid + default ACL (modules/storage.nix);
-  # render/video are the QSV nodes go-vod transcodes on
-  users.users.nextcloud.extraGroups = [
-    settings.group
-    "render"
-    "video"
-  ];
+  # the array is group-writable by setgid + default ACL (modules/storage.nix)
+  users.users.nextcloud.extraGroups = [ settings.group ];
 
   # upstream: :80, which would not match overwritehost
   services.nginx.virtualHosts.${host}.listen = [
@@ -248,22 +224,10 @@ in
   # 0750, so nothing there is loosened
   systemd.services.nextcloud-cron.serviceConfig.UMask = "0002";
 
-  # not CacheDirectory=: the php-fpm unit runs as root and only the pool runs
-  # as nextcloud, so the directory would be root-owned
-  systemd.tmpfiles.rules = [
-    "d /var/cache/nextcloud-go-vod 0750 nextcloud nextcloud -"
-    "d /var/cache/nextcloud-memories 0750 nextcloud nextcloud -"
-  ];
+  systemd.services.phpfpm-nextcloud.serviceConfig.UMask = "0002";
 
-  systemd.services.phpfpm-nextcloud.serviceConfig = {
-    UMask = "0002";
-    # go-vod runs as a child of a php-fpm worker, and upstream phpfpm sets
-    # PrivateDevices, which hides /dev/dri entirely
-    PrivateDevices = lib.mkForce false;
-    DeviceAllow = [ "/dev/dri/renderD128 rw" ];
-  };
-
-  # a file share only; app state lives in the database, so re-asserted every boot
+  # a file share only; photos are immich's (modules/immich.nix). app state
+  # lives in the database, so re-asserted every boot
   systemd.services.nextcloud-disable-apps = {
     wantedBy = [ "multi-user.target" ];
     after = [ "nextcloud-setup.service" ];
@@ -276,12 +240,14 @@ in
     script = ''
       set -euo pipefail
 
-      # apps already off or missing are reported, not failed
+      # apps already off or missing are reported, not failed. memories was an
+      # extraApp until immich took over (modules/immich.nix); its enabled flag
+      # outlives the files
       ${occ} app:disable \
         activity app_api circles comments contactsinteraction dashboard \
-        federation files_reminders firstrunwizard nextcloud_announcements \
-        photos recommendations related_resources support survey_client \
-        systemtags user_status weather_status
+        federation files_reminders firstrunwizard memories \
+        nextcloud_announcements photos recommendations related_resources \
+        support survey_client systemtags user_status weather_status
     '';
   };
 
@@ -340,33 +306,6 @@ in
       RandomizedDelaySec = "20min";
       Unit = "nextcloud-preview-generate.service";
     };
-  };
-
-  # memories indexes on its own from nextcloud-cron; this is the first pass
-  # over a library that was already on the array - `just index-photos`
-  systemd.services.nextcloud-memories-index = {
-    description = "index the photo directories for memories";
-    after = [ "nextcloud-external-storage.service" ];
-    unitConfig.RequiresMountsFor = [ settings.storage.root ];
-    path = with pkgs; [ jq ];
-    serviceConfig = {
-      Type = "oneshot";
-      User = "nextcloud";
-      ExecCondition = "${occ} status --exit-code";
-      Nice = 10;
-      IOSchedulingClass = "idle";
-      TimeoutStartSec = "12h";
-    };
-    script = ''
-      set -euo pipefail
-
-      # one --path per run, relative to the user's own root
-      while read -r uid; do
-      ${lib.concatMapStringsSep "\n  " (
-        dir: ''${occ} memories:index --user "$uid" --path ${lib.escapeShellArg "/${dir}"}''
-      ) ncfg.previewDirs}
-      done < <(${occ} user:list --output=json | jq -r 'keys[]')
-    '';
   };
 
   # external mounts live in the database, so reconciled on every boot

@@ -12,6 +12,7 @@
     ./modules/backup.nix
     ./modules/bluetooth.nix
     ./modules/home-assistant.nix
+    ./modules/immich.nix
     ./modules/jellyfin.nix
     ./modules/nextcloud.nix
     ./modules/pihole.nix

@@ -30,6 +30,7 @@ let
         LAB_BACKUP_DIR = cfg.dir;
         LAB_BACKUP_KEEP = toString cfg.keep;
         LAB_NEXTCLOUD_VERSION = config.services.nextcloud.package.version;
+        LAB_IMMICH_VERSION = config.services.immich.package.version;
         LAB_PG_VERSION = config.services.postgresql.package.version;
         LAB_STATE_VERSION = config.system.stateVersion;
       };
