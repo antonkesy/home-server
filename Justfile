@@ -98,10 +98,21 @@ scan-photos:
     sudo systemctl restart --no-block immich-setup.service
     sudo journalctl -u immich-setup -f -n 50
 
-# Download new videos for every show in ytdlSub.shows now instead of at 02:30
+# Download new videos for every show in YouTube/subscriptions.yaml now instead of at 02:30
 youtube:
     sudo systemctl start --no-block ytdl-sub-youtube.service
     sudo journalctl -u ytdl-sub-youtube -f -n 50
+
+# Every show in YouTube/subscriptions.yaml, its seasons and their URLs
+youtube-list:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    f="$(nix eval --raw --file "{{ settings }}" ytdlSub.dir)/subscriptions.yaml"
+    [ -e "$f" ] || { echo "$f: not there yet; the first run seeds it"; exit 0; }
+    yq -o json '. // {}' "$f" | jq -r '
+      to_entries[] | (.key | ltrimstr("~")), (.value as $v | $v | keys[]
+        | select(test("^s[0-9]+_name$")) | sub("_name$"; "") as $s
+        | "  \($s)  \($v[$s + "_name"])  \([$v[$s + "_url"]] | flatten | join(" "))")'
 
 # Garbage-collect; also drops the rollback generations
 clean:

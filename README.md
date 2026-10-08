@@ -164,6 +164,31 @@ Nextcloud's `files_no_background_scan` stops cron from walking the array.
 that switches live, and `clean` drops the generations `rollback` needs.
 Garbage collection also runs on its own every Sunday, keeping 30 days.
 
+### YouTube
+
+`/mnt/storage/YouTube/subscriptions.yaml` is the list of followed channels;
+edit it through Nextcloud (`YouTube` share) or on the server, no rebuild.
+`just youtube-list` prints it, `just youtube` downloads now instead of at
+02:30. One entry per show, one season per URL:
+
+```yaml
+coldmirror:
+  s01_name: Videos # the channel: every upload no later season claims
+  s01_url: https://www.youtube.com/@coldmirror
+  s02_name: 5 Minuten Harry Podcast # a playlist
+  s02_url: https://www.youtube.com/playlist?list=PLDvBqWb1UAGeEt9n6vFH_zdGw65Obf3sH
+```
+
+- The show name is the folder and the Jellyfin title.
+- Up to 40 seasons, `s00` is Specials, and a season can take a list of
+  URLs (several channels, or single `watch?v=` videos).
+- A video in several URLs is downloaded once, into the highest season - so
+  put playlists after the channel.
+- Playlist URLs: open the playlist and copy its `list=` id; a
+  `youtube.com/show/VL<id>` link is the playlist `<id>`.
+- A new show downloads its whole history on its first run. Removing an entry
+  stops downloads but keeps the files.
+
 ## Backup & restore
 
 `just backup [dir]` writes one `lab-<date>.tar.zst` to
@@ -186,10 +211,10 @@ Nextcloud login away. Inside:
 - Pi-hole: `pihole.toml`, `gravity.db`, `dnsmasq.d`
 - Tailscale: the node key, so a restored machine is the same node
 - MusicGrabber: its database (settings, watched playlists)
+- ytdl-sub: `YouTube/subscriptions.yaml`
 
-Not inside: user files, media (YouTube downloads too: ytdl-sub keeps no
-state outside the array, its subscriptions are `settings.nix` and each show's
-download archive is a dotfile next to its videos), Paperless documents, previews, Immich
+Not inside: user files, media (YouTube downloads too; each show's download
+archive is a dotfile next to its videos), Paperless documents, previews, Immich
 thumbnails, caches, logs, Home Assistant history. The mirror is what covers those, and it only covers
 one disk dying - the archive now sits on the same machine as the state it
 backs up, so fire, theft or a dead PSU takes both. `just backup /run/media/...`
@@ -291,16 +316,16 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   more. `APP_URL` is `http://lab.fritz.box:3000`, which is what a Kobo gets
   told to sync against.
 - **ytdl-sub** (`modules/ytdl-sub.nix`) archives YouTube channels into
-  `/mnt/storage/YouTube` as Jellyfin TV shows. There is no web UI and no
-  port: the subscriptions are `ytdlSub.shows` in `settings.nix`, and
-  `ytdl-sub-youtube.timer` runs the nixpkgs module's oneshot nightly at
-  02:30 (`just youtube` by hand). Each show uses the *TV Show Collection*
-  preset, where every URL is a season: `s01` is usually the channel itself
-  and catches every upload, `s02` and up are playlists, and `s00` holds
-  specials. A video that is both in the channel's uploads and in a playlist
-  is downloaded once and filed under the higher-numbered season. A YouTube
-  `/show/VL<id>` link is the playlist `<id>`. A new show downloads its whole
-  history on the first run, capped at `ytdlSub.quality` (1080p). Videos are
+  `/mnt/storage/YouTube` as Jellyfin TV shows; adding one is under **Day to
+  day**. There is no web UI and no port. `ytdl-sub-youtube.timer` runs the
+  nixpkgs module's oneshot nightly at 02:30, and before each run
+  `ytdl-sub-youtube-prepare` wraps `YouTube/subscriptions.yaml` - only the
+  shows, so it stays editable in Nextcloud without a rebuild - into the
+  *Jellyfin TV Show Collection* preset, the quality cap
+  (`ytdlSub.quality`, 1080p) and the target directory, all of which stay in
+  Nix. A missing file is seeded from `ytdlSub.initialShows`; a broken one
+  fails the run with yq's parse error in `just logs ytdl-sub-youtube`.
+  Videos are
   staged on the SSD in `/var/lib/ytdl-sub/youtube/working` rather than
   upstream's `/run`, which is RAM. The unit runs in `lab` with `UMask=0002`
   and without upstream's `PrivateUsers`, which would leave `lab` unmapped. It

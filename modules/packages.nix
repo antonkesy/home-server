@@ -4,6 +4,7 @@
   environment.systemPackages = with pkgs; [
     just
     jq
+    yq-go # YouTube/subscriptions.yaml
     rsync
     neovim
     lazygit

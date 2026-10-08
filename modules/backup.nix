@@ -33,6 +33,8 @@ let
         LAB_IMMICH_VERSION = config.services.immich.package.version;
         LAB_PG_VERSION = config.services.postgresql.package.version;
         LAB_STATE_VERSION = config.system.stateVersion;
+        # edited in nextcloud, so not in the repo (modules/ytdl-sub.nix)
+        LAB_YOUTUBE_SUBSCRIPTIONS = "${settings.ytdlSub.dir}/subscriptions.yaml";
       };
       text = builtins.readFile ../scripts/${name}.sh;
     };

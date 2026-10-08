@@ -124,12 +124,14 @@ in
     # nightly, in the window nextcloud.previewOnCalendar already wakes the
     # disks for
     onCalendar = "02:30";
+    # the shows live in <dir>/subscriptions.yaml, edited in nextcloud and read
+    # on every run. this only seeds that file when it does not exist yet.
     # show name -> seasons, as ytdl-sub's TV Show Collection takes them.
     # s01 is usually the channel itself, which catches every upload no
     # playlist below claims; s02 and up are playlists; s00 is specials.
     # the whole history is downloaded on the first run. a /show/VL<id> link
     # from youtube is the playlist <id>
-    shows = {
+    initialShows = {
       "coldmirror" = {
         s01_name = "Videos";
         s01_url = "https://www.youtube.com/@coldmirror";
