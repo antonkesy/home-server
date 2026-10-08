@@ -36,7 +36,12 @@ let
 
   # applies to every show
   preset = yaml.generate "preset.yaml" {
-    overrides.tv_show_directory = ycfg.dir;
+    overrides = {
+      tv_show_directory = ycfg.dir;
+      # upstream: "{episode_date_standardized} - {title}". the date is already
+      # the episode number (sNN.eYYMMDDNN), which is what keeps the order
+      episode_title = "{title}";
+    };
     # chapters only, nothing cut: jellyfin's chapter segments provider turns
     # them into segments a client skips
     chapters = lib.optionalAttrs (ycfg.sponsorBlock != [ ]) {

@@ -206,7 +206,10 @@ coldmirror:
   s02_url: https://www.youtube.com/playlist?list=PLDvBqWb1UAGeEt9n6vFH_zdGw65Obf3sH
 ```
 
-- The show name is the folder and the Jellyfin title.
+- The show name is the folder and the Jellyfin title. Episodes are numbered
+  by upload date - `s02.e22021101` is season 2, 2022-02-11, the first that
+  day - which keeps the order stable as uploads arrive; the title Jellyfin
+  shows is the video's own.
 - Up to 40 seasons, `s00` is Specials, and a season can take a list of
   URLs (several channels, or single `watch?v=` videos).
 - A video in several URLs is downloaded once, into the highest season - so
