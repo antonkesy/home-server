@@ -50,6 +50,7 @@ in
       "Shows"
       "Audiobooks"
       "Podcasts"
+      "YouTube"
       "Soundtracks"
       "eBooks"
       "Photos"
@@ -112,6 +113,30 @@ in
     # both in storage.dirs; added as libraries by hand in the web UI
     audiobooksDir = "${storageRoot}/Audiobooks";
     podcastsDir = "${storageRoot}/Podcasts";
+  };
+
+  # modules/ytdl-sub.nix: youtube channels as jellyfin tv shows
+  ytdlSub = {
+    # one of storage.dirs; each show is <name>/Season NN/ underneath
+    dir = "${storageRoot}/YouTube";
+    # a ytdl-sub media quality preset
+    quality = "Max 1080p";
+    # nightly, in the window nextcloud.previewOnCalendar already wakes the
+    # disks for
+    onCalendar = "02:30";
+    # show name -> seasons, as ytdl-sub's TV Show Collection takes them.
+    # s01 is usually the channel itself, which catches every upload no
+    # playlist below claims; s02 and up are playlists; s00 is specials.
+    # the whole history is downloaded on the first run. a /show/VL<id> link
+    # from youtube is the playlist <id>
+    shows = {
+      "coldmirror" = {
+        s01_name = "Videos";
+        s01_url = "https://www.youtube.com/@coldmirror";
+        s02_name = "5 Minuten Harry Podcast";
+        s02_url = "https://www.youtube.com/playlist?list=PLDvBqWb1UAGeEt9n6vFH_zdGw65Obf3sH";
+      };
+    };
   };
 
   # `just backup`, `just restore`

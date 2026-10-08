@@ -39,7 +39,7 @@ rollback:
 
 # Unit status
 status:
-    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service audiobookshelf.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service tailscaled.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service bookorbit-setup.service pihole-domains.service lab-backup.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
+    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service audiobookshelf.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service tailscaled.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service bookorbit-setup.service pihole-domains.service lab-backup.timer ytdl-sub-youtube.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
 
 # Join the tailnet (opens a login URL); re-run after a restore
 tailscale-up:
@@ -97,6 +97,11 @@ warm-previews:
 scan-photos:
     sudo systemctl restart --no-block immich-setup.service
     sudo journalctl -u immich-setup -f -n 50
+
+# Download new videos for every show in ytdlSub.shows now instead of at 02:30
+youtube:
+    sudo systemctl start --no-block ytdl-sub-youtube.service
+    sudo journalctl -u ytdl-sub-youtube -f -n 50
 
 # Garbage-collect; also drops the rollback generations
 clean:

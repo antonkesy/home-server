@@ -3,8 +3,8 @@
 [![check](https://github.com/antonkesy/home-server/actions/workflows/check.yml/badge.svg)](https://github.com/antonkesy/home-server/actions/workflows/check.yml)
 
 Home server (`lab`) running Home Assistant, Immich, Jellyfin, Audiobookshelf,
-Nextcloud, Paperless-ngx, Pi-hole, MusicGrabber, BookOrbit and Tailscale,
-built from a flake.
+Nextcloud, Paperless-ngx, Pi-hole, MusicGrabber, BookOrbit, ytdl-sub and
+Tailscale, built from a flake.
 
 ## Setup
 
@@ -64,6 +64,8 @@ flowchart TD
     bob["bookorbit in podman<br>:3000"]
   end
 
+  yts["ytdl-sub-youtube.timer<br>02:30"]
+
   subgraph ssdg["SSD - /var/lib"]
     pg[("postgresql")]
     rd[("redis")]
@@ -71,7 +73,7 @@ flowchart TD
   end
 
   subgraph raid["RAID1 - /mnt/storage"]
-    med["Movies / Music / Shows<br>Audiobooks / Podcasts / Soundtracks<br>eBooks"]
+    med["Movies / Music / Shows<br>Audiobooks / Podcasts / Soundtracks<br>eBooks / YouTube"]
     pho["Photos<br>Photos/Immich uploads"]
     doc["Documents/Paperless<br>consume + media"]
     arc["Archive"]
@@ -82,6 +84,7 @@ flowchart TD
   remote["tailnet peer"] --> ts --> client
   client --> ncb & jfb & abs & plb & imb & mgb & bob
   mgb --> med
+  yts --> med
   bob --> pg
   bob --> med
   ph --> st
@@ -147,8 +150,8 @@ that runs constantly - lives entirely on it, so DNS never waits for a disk.
 The first read from a sleeping array waits five to ten seconds for spin-up.
 What wakes the disks: opening Immich, Jellyfin, Audiobookshelf, Nextcloud,
 Paperless or BookOrbit; the
-02:30 Nextcloud preview run and the Immich library scan that shares its
-window; the Sunday 05:30 backup; the first-Saturday scrub and the Paperless sanity check that
+02:30 Nextcloud preview run, and the Immich library scan and the ytdl-sub
+run that share its window; the Sunday 05:30 backup; the first-Saturday scrub and the Paperless sanity check that
 rides along with it; and any `nixos-rebuild switch` that changes `smartd`,
 because smartd spins both disks up when it starts. Nothing else should -
 `smartd` polls with `-n standby,q` so it skips a parked disk silently, and
@@ -184,7 +187,9 @@ Nextcloud login away. Inside:
 - Tailscale: the node key, so a restored machine is the same node
 - MusicGrabber: its database (settings, watched playlists)
 
-Not inside: user files, media, Paperless documents, previews, Immich
+Not inside: user files, media (YouTube downloads too: ytdl-sub keeps no
+state outside the array, its subscriptions are `settings.nix` and each show's
+download archive is a dotfile next to its videos), Paperless documents, previews, Immich
 thumbnails, caches, logs, Home Assistant history. The mirror is what covers those, and it only covers
 one disk dying - the archive now sits on the same machine as the state it
 backs up, so fire, theft or a dead PSU takes both. `just backup /run/media/...`
@@ -285,6 +290,26 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   runs read-only with the capabilities upstream's compose grants and nothing
   more. `APP_URL` is `http://lab.fritz.box:3000`, which is what a Kobo gets
   told to sync against.
+- **ytdl-sub** (`modules/ytdl-sub.nix`) archives YouTube channels into
+  `/mnt/storage/YouTube` as Jellyfin TV shows. There is no web UI and no
+  port: the subscriptions are `ytdlSub.shows` in `settings.nix`, and
+  `ytdl-sub-youtube.timer` runs the nixpkgs module's oneshot nightly at
+  02:30 (`just youtube` by hand). Each show uses the *TV Show Collection*
+  preset, where every URL is a season: `s01` is usually the channel itself
+  and catches every upload, `s02` and up are playlists, and `s00` holds
+  specials. A video that is both in the channel's uploads and in a playlist
+  is downloaded once and filed under the higher-numbered season. A YouTube
+  `/show/VL<id>` link is the playlist `<id>`. A new show downloads its whole
+  history on the first run, capped at `ytdlSub.quality` (1080p). Videos are
+  staged on the SSD in `/var/lib/ytdl-sub/youtube/working` rather than
+  upstream's `/run`, which is RAM. The unit runs in `lab` with `UMask=0002`
+  and without upstream's `PrivateUsers`, which would leave `lab` unmapped. It
+  waits on the array, because the per-show download archives live there and
+  a run without them would start every show over on the SSD. In Jellyfin, add
+  `/mnt/storage/YouTube` by hand as a *Shows* library with the NFO metadata
+  reader on and the online metadata fetchers off; ytdl-sub writes the NFOs
+  and posters. yt-dlp comes from nixpkgs, so when YouTube breaks it, the fix
+  is `just upgrade`.
 - **Tailscale** (`modules/tailscale.nix`) makes lab reachable from outside.
   `just tailscale-up` once prints the login URL; the node key then lives in
   `/var/lib/tailscale` and is in the backup. `tailscale0` is a trusted
@@ -332,7 +357,7 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   standby timer on whichever devices carry the RAID superblock, so no serial is
   hardcoded; a USB bridge that rejects the command is ignored and the
   enclosure's own idle timer takes over. Jellyfin's libraries still have to be
-  pointed at `/mnt/storage/{Movies,Music,Shows}` by hand in its dashboard.
+  pointed at `/mnt/storage/{Movies,Music,Shows,YouTube}` by hand in its dashboard.
 - **Paperless** keeps its documents in `/mnt/storage/Documents/Paperless`
   (`paperless.dir`). Drop a scan into `consume/` by any route and inotify picks
   it up; unparsable files stay behind there. It keeps

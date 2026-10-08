@@ -23,6 +23,7 @@
     ./modules/paperless.nix
     ./modules/secrets.nix
     ./modules/users.nix
+    ./modules/ytdl-sub.nix
   ];
 
   time.timeZone = settings.timeZone;

@@ -36,6 +36,7 @@ let
     "immich-storage-dirs.service"
     "podman-musicgrabber.service"
     "podman-bookorbit.service"
+    "ytdl-sub-youtube.service"
     "nextcloud-external-storage.service"
     "nextcloud-media-scan.service"
     "nextcloud-media-watch.service"
