@@ -159,7 +159,34 @@ Nextcloud's `files_no_background_scan` stops cron from walking the array.
 
 ## Day to day
 
-`just --list` shows every recipe. Three things it cannot tell you:
+| Recipe                             | What it does                                                         |
+| ---------------------------------- | -------------------------------------------------------------------- |
+| `install`                          | first switch, then the password for `ak`; the one that switches live |
+| `update`                           | build and stage for the next boot                                    |
+| `upgrade`                          | bump nixpkgs, then `update`                                          |
+| `build`                            | build without activating                                             |
+| `rollback`                         | activate the previous generation                                     |
+| `clean`                            | garbage-collect, dropping the generations `rollback` needs           |
+| `hardware`                         | regenerate `hardware-configuration.nix`                              |
+| `migrate`                          | new machine: `hardware`, `install`, `restore`                        |
+| `status`                           | state of every service and timer                                     |
+| `logs <unit>`                      | follow one unit's journal                                            |
+| `disk`                             | free space on `/` and the array, the big state directories           |
+| `storage`                          | mirror health and whether the disks are spinning                     |
+| `fix-perms`                        | re-run the array-wide ownership and ACL repair                       |
+| `backup [dir]`                     | config and secrets archive, to `Backups/lab` by default              |
+| `restore [archive]`                | restore the newest archive, or the given one                         |
+| `scan`                             | index what Nextcloud has not seen yet                                |
+| `warm-previews`                    | build missing Nextcloud thumbnails now                               |
+| `scan-photos`                      | re-assert the Immich library and scan it                             |
+| `youtube`                          | download new videos now instead of at 02:30                          |
+| `youtube-list`                     | print the followed shows, their seasons and URLs                     |
+| `tailscale-up`                     | join the tailnet; re-run after a restore                             |
+| `tmp-dns`                          | public DNS in `/etc/resolv.conf` until the next network change       |
+| `passwords`                        | print the generated service passwords                                |
+| `set-{pihole,nextcloud,immich}-pw` | rotate that service's admin password                                 |
+
+`just --list` prints the same. Three things it cannot tell you:
 `update` and `upgrade` only stage the next boot, `install` is the one recipe
 that switches live, and `clean` drops the generations `rollback` needs.
 Garbage collection also runs on its own every Sunday, keeping 30 days.
@@ -188,6 +215,43 @@ coldmirror:
   `youtube.com/show/VL<id>` link is the playlist `<id>`.
 - A new show downloads its whole history on its first run. Removing an entry
   stops downloads but keeps the files.
+
+### Skipping sponsors in Jellyfin
+
+ytdl-sub writes each SponsorBlock segment into the video as a chapter titled
+`[SponsorBlock]: <category>`; where segments overlap, one chapter carries
+both, e.g. `[SponsorBlock]: Preview/Recap, Unpaid/Self Promotion`. Jellyfin
+turns chapters into *media segments* (Intro, Outro, Preview, Commercial)
+with the **Chapter Segments Provider** plugin, and a client skips a segment
+type it is told to. None of this is in Nix - Jellyfin keeps it in its data
+dir - so, once:
+
+1. Dashboard > Plugins > Catalog: install *Chapter Segments Provider*,
+   restart Jellyfin.
+2. Its settings, one regex per segment type. Not anchored at the end, so a
+   combined chapter matches too:
+
+   | Segment    | Regex                                                                         | Categories                      |
+   | ---------- | ----------------------------------------------------------------------------- | ------------------------------- |
+   | Commercial | `^\[SponsorBlock\]: .*(Sponsor\|Unpaid/Self Promotion\|Interaction Reminder)` | sponsor, selfpromo, interaction |
+   | Intro      | `^\[SponsorBlock\]: .*Intermission/Intro Animation`                           | intro                           |
+   | Outro      | `^\[SponsorBlock\]: .*Endcards/Credits`                                       | outro                           |
+   | Preview    | `^\[SponsorBlock\]: .*Preview/Recap`                                          | preview                         |
+
+   A combined chapter can match two rows; with both set to *Skip* it is
+   skipped either way. Filler Tangent, Non-Music Section and Highlight have
+   no segment type;
+   they stay ordinary chapters to jump to or past. The `^\[SponsorBlock\]`
+   prefix keeps a channel's own chapter called "Intro" out of it.
+3. Dashboard > Scheduled Tasks: run the media segment task (or a library
+   scan) once; new videos get theirs on every scan after.
+4. In every client's playback settings, under media segments: set
+   Commercial (and Intro, Outro, Preview, as wanted) to *Skip*, or *Ask to
+   skip* for a button instead. Per user and per client: the web UI, the
+   Android app and Jellyfin Media Player each need it once.
+
+A video downloaded before a segment was submitted keeps no chapter for it;
+`ytdlSub.delayDays` is what makes that rare.
 
 ## Backup & restore
 
@@ -321,9 +385,10 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   nixpkgs module's oneshot nightly at 02:30, and before each run
   `ytdl-sub-youtube-prepare` wraps `YouTube/subscriptions.yaml` - only the
   shows, so it stays editable in Nextcloud without a rebuild - into the
-  *Jellyfin TV Show Collection* preset, the quality cap
-  (`ytdlSub.quality`, 1080p) and the target directory, all of which stay in
-  Nix. A missing file is seeded from `ytdlSub.initialShows`; a broken one
+  *Jellyfin TV Show Collection* preset, the quality (`ytdlSub.quality`:
+  the best youtube has, 4K included, merged into mp4 - a 4K channel is tens
+  of GB), the SponsorBlock chapters and the target directory, all of which
+  stay in Nix. A missing file is seeded from `ytdlSub.initialShows`; a broken one
   fails the run with yq's parse error in `just logs ytdl-sub-youtube`.
   Videos are
   staged on the SSD in `/var/lib/ytdl-sub/youtube/working` rather than
@@ -335,6 +400,13 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   reader on and the online metadata fetchers off; ytdl-sub writes the NFOs
   and posters. yt-dlp comes from nixpkgs, so when YouTube breaks it, the fix
   is `just upgrade`.
+
+  SponsorBlock segments are marked, never cut: every category in
+  `ytdlSub.sponsorBlock` is embedded as a chapter, and Jellyfin skips them
+  (**Skipping sponsors in Jellyfin** below). SponsorBlock is crowd-sourced
+  and a video is fetched exactly once, so ytdl-sub waits until a video is
+  `ytdlSub.delayDays` (3) old; a newer one is left for a later run. The
+  `[SponsorBlock]` chapter titles are yt-dlp's.
 - **Tailscale** (`modules/tailscale.nix`) makes lab reachable from outside.
   `just tailscale-up` once prints the login URL; the node key then lives in
   `/var/lib/tailscale` and is in the backup. `tailscale0` is a trusted

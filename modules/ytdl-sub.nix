@@ -34,13 +34,28 @@ let
         } > $out
       '';
 
+  # applies to every show
+  preset = yaml.generate "preset.yaml" {
+    overrides.tv_show_directory = ycfg.dir;
+    # chapters only, nothing cut: jellyfin's chapter segments provider turns
+    # them into segments a client skips
+    chapters = lib.optionalAttrs (ycfg.sponsorBlock != [ ]) {
+      sponsorblock_categories = ycfg.sponsorBlock;
+    };
+    # non-breaking upstream: a newer video is skipped, not archived, and
+    # picked up by a later run
+    date_range = lib.optionalAttrs (ycfg.delayDays > 0) {
+      before = "today-${toString ycfg.delayDays}days";
+    };
+  };
+
   # showsFile holds only the shows; preset, quality and directory stay here.
   # the `~` that marks a show as override variables is added if missing
   prepare = pkgs.writeShellScript "ytdl-sub-youtube-prepare" ''
     set -euo pipefail
     [ -e ${showsFile} ] || install -m 0664 ${seed} ${showsFile}
     ${yq} '{
-      "__preset__": {"overrides": {"tv_show_directory": "${ycfg.dir}"}},
+      "__preset__": load("${preset}"),
       "Jellyfin TV Show Collection | ${ycfg.quality}":
         ((. // {}) | with_entries(.key |= sub("^~?", "~")))
     }' ${showsFile} > ${subscriptions}

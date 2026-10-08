@@ -119,8 +119,27 @@ in
   ytdlSub = {
     # one of storage.dirs; each show is <name>/Season NN/ underneath
     dir = "${storageRoot}/YouTube";
-    # a ytdl-sub media quality preset
-    quality = "Max 1080p";
+    # a ytdl-sub media quality preset; best is whatever youtube has, 4K
+    # included, merged into mp4
+    quality = "Best Video Quality";
+    # sponsorblock segments marked as chapters in every video, for jellyfin to
+    # skip; the video itself stays whole. every category ytdl-sub knows. the
+    # chapters are titled "[SponsorBlock]: <name>" (README, ytdl-sub)
+    sponsorBlock = [
+      "sponsor" # Sponsor
+      "selfpromo" # Unpaid/Self Promotion
+      "interaction" # Interaction Reminder
+      "intro" # Intermission/Intro Animation
+      "outro" # Endcards/Credits
+      "preview" # Preview/Recap
+      "filler" # Filler Tangent
+      "music_offtopic" # Non-Music Section
+      "poi_highlight" # Highlight, a single point
+    ];
+    # a video is fetched only once it is this many days old, so the
+    # crowd-sourced sponsorblock segments have had time to arrive. 0 is the
+    # night after the upload
+    delayDays = 3;
     # nightly, in the window nextcloud.previewOnCalendar already wakes the
     # disks for
     onCalendar = "02:30";
