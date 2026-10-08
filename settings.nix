@@ -52,7 +52,7 @@ in
       "Podcasts"
       "YouTube"
       "Soundtracks"
-      "eBooks"
+      "Books"
       "Photos"
       "Documents"
       "Archive"
@@ -103,7 +103,7 @@ in
   bookOrbit = {
     # one of storage.dirs; mounted as /books, scanned where it is. uploads
     # from the web UI land in it as ak:lab
-    dir = "${storageRoot}/eBooks";
+    dir = "${storageRoot}/Books";
     # pinned; bump by hand
     image = "ghcr.io/bookorbit/bookorbit:3.2.0";
   };

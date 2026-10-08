@@ -73,7 +73,7 @@ flowchart TD
   end
 
   subgraph raid["RAID1 - /mnt/storage"]
-    med["Movies / Music / Shows<br>Audiobooks / Podcasts / Soundtracks<br>eBooks / YouTube"]
+    med["Movies / Music / Shows<br>Audiobooks / Podcasts / Soundtracks<br>Books / YouTube"]
     pho["Photos<br>Photos/Immich uploads"]
     doc["Documents/Paperless<br>consume + media"]
     arc["Archive"]
@@ -297,7 +297,7 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   on the LAN and the tailnet only - set `API_KEY` in the container
   environment if that changes. The Jellyfin/Navidrome refresh hooks are off.
 - **BookOrbit** (`modules/bookorbit.nix`) is the ebook library: a podman
-  container with `/mnt/storage/eBooks` mounted as `/books`, read in place -
+  container with `/mnt/storage/Books` mounted as `/books`, read in place -
   the files stay where Nextcloud already sees them.
   Whatever it writes there (uploads from the web UI, renamed files if that
   is turned on) is `ak:lab` through `PUID`/`PGID`, the group id read with

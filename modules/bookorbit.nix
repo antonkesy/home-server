@@ -141,7 +141,7 @@ in
     # the database and its role exist once the target is reached
     requires = [ "postgresql.target" ];
     after = [ "postgresql.target" ];
-    # a bind of an unmounted array would build eBooks/ on the SSD
+    # a bind of an unmounted array would build Books/ on the SSD
     unitConfig.RequiresMountsFor = [ bcfg.dir ];
     path = [ pkgs.coreutils ];
     serviceConfig.ExecStartPre = lib.mkBefore [ "${pgid}" ];
