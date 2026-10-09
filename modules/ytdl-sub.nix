@@ -54,6 +54,8 @@ let
       # a home IP with "Sign in to confirm you're not a bot". put there by
       # `just youtube-cookies`; while it is missing yt-dlp runs without
       cookiefile = cookies;
+      # the progress bar is a journal line several times a second
+      noprogress = true;
     };
     # chapters only, nothing cut: jellyfin's chapter segments provider turns
     # them into segments a client skips
