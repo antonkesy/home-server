@@ -42,6 +42,11 @@ let
       # the episode number (sNN.eYYMMDDNN), which is what keeps the order
       episode_title = "{title}";
     };
+    # upstream stops a URL at its first already-archived video, so a channel
+    # whose newest videos are in never gets its older ones (a run that failed
+    # or was stopped partway). archived ones are skipped by id from the
+    # listing, without fetching them, so walking every URL costs little
+    ytdl_options.break_on_existing = false;
     # chapters only, nothing cut: jellyfin's chapter segments provider turns
     # them into segments a client skips
     chapters = lib.optionalAttrs (ycfg.sponsorBlock != [ ]) {
