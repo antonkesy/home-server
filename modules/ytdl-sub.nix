@@ -59,6 +59,11 @@ let
   prepare = pkgs.writeShellScript "ytdl-sub-youtube-prepare" ''
     set -euo pipefail
     [ -e ${showsFile} ] || install -m 0664 ${seed} ${showsFile}
+    # ytdl-sub takes any key as a variable, so a typo (s01_names) is
+    # silently a season without a name. only warn: other overrides are valid
+    ${yq} '(. // {}) | to_entries | .[] | .key as $show | (.value // {}) | keys | .[]
+      | select(test("^s[0-9]{2}_(name|url)$") | not) | $show + ": " + .' ${showsFile} \
+      | sed 's/^/warning: subscriptions.yaml: not sNN_name or sNN_url: /' >&2
     ${yq} '{
       "__preset__": load("${preset}"),
       "Jellyfin TV Show Collection | ${ycfg.quality}":
@@ -84,6 +89,12 @@ in
     # upstream: /run/ytdl-sub/youtube, which is RAM. a video is staged whole
     # before it is moved onto the array, so the SSD instead
     config.configuration.working_directory = lib.mkForce "/var/lib/ytdl-sub/youtube/working";
+    # the "see /tmp/ytdl-sub.errors…" file is in the unit's PrivateTmp,
+    # gone once the run ends. a failed show's full debug log lands here
+    config.configuration.persist_logs = {
+      logs_directory = "/var/lib/ytdl-sub/youtube/logs";
+      keep_successful_logs = false;
+    };
   };
 
   # the array is group-writable by setgid + default ACL (modules/storage.nix)
