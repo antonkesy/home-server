@@ -181,6 +181,7 @@ Nextcloud's `files_no_background_scan` stops cron from walking the array.
 | `scan-photos`                      | re-assert the Immich library and scan it                             |
 | `youtube`                          | download new videos now instead of at 02:30                          |
 | `youtube-list`                     | print the followed shows, their seasons and URLs                     |
+| `youtube-cookies <file>`           | give ytdl-sub a signed-in YouTube session                            |
 | `tailscale-up`                     | join the tailnet; re-run after a restore                             |
 | `tmp-dns`                          | public DNS in `/etc/resolv.conf` until the next network change       |
 | `passwords`                        | print the generated service passwords                                |
@@ -218,6 +219,17 @@ coldmirror:
   `youtube.com/show/VL<id>` link is the playlist `<id>`.
 - A new show downloads its whole history on its first run. Removing an entry
   stops downloads but keeps the files.
+
+YouTube refuses most downloads from a home IP without a signed-in session
+("Sign in to confirm you're not a bot" in `just logs ytdl-sub-youtube`; the
+show still reports success, with 0 files). Use a throwaway Google account,
+not your own - YouTube can block an account it sees downloading. In a private
+browser window, sign in, open youtube.com, export its cookies as
+`cookies.txt` (Netscape format, e.g. the *Get cookies.txt LOCALLY*
+extension), then close the window without signing out, so the session is not
+rotated away. Copy the file to lab, `just youtube-cookies cookies.txt`,
+delete the copy. It is not in the backup; when the bot errors come back, the
+session has expired, so export it again.
 
 ### Skipping sponsors in Jellyfin
 

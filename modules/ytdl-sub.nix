@@ -16,6 +16,8 @@ let
   showsFile = "${ycfg.dir}/subscriptions.yaml";
   # the module's RuntimeDirectory
   subscriptions = "/run/ytdl-sub/youtube/subscriptions.yaml";
+  # the module's StateDirectory; a secret, so not on the share
+  cookies = "/var/lib/ytdl-sub/youtube/cookies.txt";
 
   # what the file starts as when there is none
   seed =
@@ -46,7 +48,13 @@ let
     # whose newest videos are in never gets its older ones (a run that failed
     # or was stopped partway). archived ones are skipped by id from the
     # listing, without fetching them, so walking every URL costs little
-    ytdl_options.break_on_existing = false;
+    ytdl_options = {
+      break_on_existing = false;
+      # without a signed-in session youtube answers most video requests from
+      # a home IP with "Sign in to confirm you're not a bot". put there by
+      # `just youtube-cookies`; while it is missing yt-dlp runs without
+      cookiefile = cookies;
+    };
     # chapters only, nothing cut: jellyfin's chapter segments provider turns
     # them into segments a client skips
     chapters = lib.optionalAttrs (ycfg.sponsorBlock != [ ]) {

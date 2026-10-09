@@ -114,6 +114,11 @@ youtube-list:
         | select(test("^s[0-9]+_name$")) | sub("_name$"; "") as $s
         | "  \($s)  \($v[$s + "_name"])  \([$v[$s + "_url"]] | flatten | join(" "))")'
 
+# Install a youtube.com cookies.txt (Netscape format) for ytdl-sub; the file given is left as is
+youtube-cookies file:
+    sudo install -o ytdl-sub -g ytdl-sub -m 0600 "{{ file }}" /var/lib/ytdl-sub/youtube/cookies.txt
+    @echo "installed; delete {{ file }}, it is a signed-in session"
+
 # Garbage-collect; also drops the rollback generations
 clean:
     sudo nix-collect-garbage -d
