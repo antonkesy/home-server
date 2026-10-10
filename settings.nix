@@ -29,6 +29,24 @@ in
     domain = "fritz.box";
   };
 
+  # modules/proxy.nix: every web ui at https://<subdomain>.<domain>, one
+  # wildcard certificate from let's encrypt over hostinger's dns api. the names
+  # only resolve on the LAN, through pi-hole; the domain's public records are
+  # left alone
+  domain = "antonkesy.de";
+  # keyed like `ports`; nextcloud has no port, nginx serves it directly
+  subdomains = {
+    homeAssistant = "home";
+    jellyfin = "jellyfin";
+    audiobookshelf = "audiobooks";
+    nextcloud = "cloud";
+    paperless = "paperless";
+    immich = "photos";
+    musicGrabber = "music";
+    bookOrbit = "books";
+    pihole = "pihole";
+  };
+
   # pi-hole upstreams; also the host's own resolvers (modules/pihole.nix)
   upstreamDns = [
     "1.1.1.1"
@@ -192,12 +210,13 @@ in
     }
   ];
 
-  # all opened in the firewall
+  # all opened in the firewall; the web ones are also behind the proxy
   ports = {
     ssh = 22;
     dns = 53;
+    http = 80;
+    https = 443;
     pihole = 4000;
-    nextcloud = 8080;
     # jellyfin reads its port from its own network.xml; 8096 is that default
     jellyfin = 8096;
     homeAssistant = 8123;

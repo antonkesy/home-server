@@ -9,7 +9,6 @@
 let
   bcfg = settings.bookOrbit;
   port = settings.ports.bookOrbit;
-  host = config.networking.hostName;
   stateDir = "/var/lib/bookorbit";
   # covers, the upload staging area (book-bucket), the book dock
   dataDir = "${stateDir}/data";
@@ -27,7 +26,7 @@ let
   # `ak` is not, so the email is the login, as with immich. the Kobo and
   # email links are built from APP_URL
   adminEmail = settings.adminEmail;
-  appUrl = "http://${host}.${settings.lan.domain}:${toString port}";
+  appUrl = "https://${settings.subdomains.bookOrbit}.${settings.domain}";
   api = "http://localhost:${toString port}/api/v1";
 
   # ak's uid is fixed (modules/users.nix), lab's gid is allocated by nixos

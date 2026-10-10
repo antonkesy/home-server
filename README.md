@@ -55,7 +55,8 @@ flowchart TD
     ts["tailscaled<br>:41641/udp, tailscale0 trusted"]
     ph["pi-hole in podman<br>:53 DNS, :4000 UI"]
     has["home-assistant :8123"]
-    ncb["nginx :8080<br>phpfpm-nextcloud, imaginary"]
+    ngx["nginx :80, :443<br>*.antonkesy.de"]
+    ncb["phpfpm-nextcloud<br>imaginary"]
     jfb["jellyfin :8096"]
     abs["audiobookshelf :13378"]
     plb["paperless :28981<br>scheduler, web, consumer, task-queue"]
@@ -82,7 +83,9 @@ flowchart TD
 
   client --> ssh & ph & has
   remote["tailnet peer"] --> ts --> client
-  client --> ncb & jfb & abs & plb & imb & mgb & bob
+  client --> ngx
+  ngx --> ncb & has & jfb & abs & plb & imb & mgb & bob & ph
+  client -.-> jfb & abs & plb & imb & mgb & bob
   mgb --> med
   yts --> med
   bob --> pg
@@ -101,7 +104,8 @@ flowchart TD
   tb["lab-backup.timer<br>Sun 05:30"] --> bak
 ```
 
-Everything listens directly; the array is the only thing that idles out, so
+Every web UI has its own `https://<name>.antonkesy.de` behind nginx; apart
+from Nextcloud, each also still answers on its own port (dotted). The array is the only thing that idles out, so
 the services on the left of it stay up and the disks on the right go to
 sleep. Not drawn are the jobs that wake them on a schedule - `mdraid-scrub`
 and the Paperless sanity check on the first Saturday, `lab-backup` on Sunday
@@ -123,18 +127,22 @@ built into the mirror once by hand; see **Storage** below.
 
 ## Services
 
-| Service        | URL                                            | Credentials                                         | Clients                                                                                                                                                                                                                                               |
-| -------------- | ---------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Home Assistant | [http://lab:8123](http://lab:8123)             | set up on first visit                               | [Home Assistant Companion](https://play.google.com/store/apps/details?id=io.homeassistant.companion.android) (Android); web on desktop                                                                                                                |
-| Jellyfin       | [http://lab:8096](http://lab:8096)             | set up on first visit                               | [Jellyfin](https://play.google.com/store/apps/details?id=org.jellyfin.mobile) or [Findroid](https://github.com/jarnedemeulemeester/findroid) (Android); [Jellyfin Media Player](https://github.com/jellyfin/jellyfin-media-player/releases) (desktop) |
-| Audiobookshelf | [http://lab:13378](http://lab:13378)           | set up on first visit                               | [Audiobookshelf](https://play.google.com/store/apps/details?id=com.audiobookshelf.app) (Android); web on desktop                                                                                                                                      |
-| Nextcloud      | [http://lab:8080](http://lab:8080)             | `/var/lib/nextcloud/admin-pass` (user `root`)       | [Nextcloud Files](https://play.google.com/store/apps/details?id=com.nextcloud.client) (Android); [Nextcloud Desktop](https://nextcloud.com/install/) (sync client)                                                                                    |
-| Paperless-ngx  | [http://lab:28981](http://lab:28981)           | `/var/lib/paperless/admin-pass` (user `admin`)      | [Paperless Mobile](https://github.com/astubenbord/paperless-mobile) (Android); web on desktop                                                                                                                                                         |
-| Immich         | [http://lab:2283](http://lab:2283)             | `/var/lib/immich/admin-pass` (user `adminEmail`)    | [Immich](https://play.google.com/store/apps/details?id=app.alextran.immich) (Android, backs up the camera roll); web on desktop                                                                                                                       |
-| MusicGrabber   | [http://lab:38274](http://lab:38274)           | none                                                | web only                                                                                                                                                                                                                                              |
-| BookOrbit      | [http://lab:3000](http://lab:3000)             | `/var/lib/bookorbit/admin-pass` (user `adminEmail`) | web; a Kobo syncs against `APP_URL`                                                                                                                                                                                                                   |
-| Tailscale      | -                                              | `just tailscale-up` once, logs in via browser       | [Tailscale](https://play.google.com/store/apps/details?id=com.tailscale.ipn) (Android); [desktop clients](https://tailscale.com/download)                                                                                                             |
-| Pi-hole        | [http://lab:4000/admin](http://lab:4000/admin) | `/var/lib/pihole/pihole.env`                        | web only                                                                                                                                                                                                                                              |
+| Service        | URL                                                                | Credentials                                         | Clients                                                                                                                                                                                                                                               |
+| -------------- | ------------------------------------------------------------------ | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Home Assistant | [https://home.antonkesy.de](https://home.antonkesy.de)             | set up on first visit                               | [Home Assistant Companion](https://play.google.com/store/apps/details?id=io.homeassistant.companion.android) (Android); web on desktop                                                                                                                |
+| Jellyfin       | [https://jellyfin.antonkesy.de](https://jellyfin.antonkesy.de)     | set up on first visit                               | [Jellyfin](https://play.google.com/store/apps/details?id=org.jellyfin.mobile) or [Findroid](https://github.com/jarnedemeulemeester/findroid) (Android); [Jellyfin Media Player](https://github.com/jellyfin/jellyfin-media-player/releases) (desktop) |
+| Audiobookshelf | [https://audiobooks.antonkesy.de](https://audiobooks.antonkesy.de) | set up on first visit                               | [Audiobookshelf](https://play.google.com/store/apps/details?id=com.audiobookshelf.app) (Android); web on desktop                                                                                                                                      |
+| Nextcloud      | [https://cloud.antonkesy.de](https://cloud.antonkesy.de)           | `/var/lib/nextcloud/admin-pass` (user `root`)       | [Nextcloud Files](https://play.google.com/store/apps/details?id=com.nextcloud.client) (Android); [Nextcloud Desktop](https://nextcloud.com/install/) (sync client)                                                                                    |
+| Paperless-ngx  | [https://paperless.antonkesy.de](https://paperless.antonkesy.de)   | `/var/lib/paperless/admin-pass` (user `admin`)      | [Paperless Mobile](https://github.com/astubenbord/paperless-mobile) (Android); web on desktop                                                                                                                                                         |
+| Immich         | [https://photos.antonkesy.de](https://photos.antonkesy.de)         | `/var/lib/immich/admin-pass` (user `adminEmail`)    | [Immich](https://play.google.com/store/apps/details?id=app.alextran.immich) (Android, backs up the camera roll); web on desktop                                                                                                                       |
+| MusicGrabber   | [https://music.antonkesy.de](https://music.antonkesy.de)           | none                                                | web only                                                                                                                                                                                                                                              |
+| BookOrbit      | [https://books.antonkesy.de](https://books.antonkesy.de)           | `/var/lib/bookorbit/admin-pass` (user `adminEmail`) | web; a Kobo syncs against `APP_URL`                                                                                                                                                                                                                   |
+| Tailscale      | -                                                                  | `just tailscale-up` once, logs in via browser       | [Tailscale](https://play.google.com/store/apps/details?id=com.tailscale.ipn) (Android); [desktop clients](https://tailscale.com/download)                                                                                                             |
+| Pi-hole        | [https://pihole.antonkesy.de](https://pihole.antonkesy.de)         | `/var/lib/pihole/pihole.env`                        | web only                                                                                                                                                                                                                                              |
+
+The names resolve on the LAN only, through Pi-hole (**Notes**, *Reverse
+proxy*). Apart from Nextcloud, `http://lab:<port>` keeps working (ports in
+`settings.nix`); the Pi-hole UI is `/admin` there.
 
 `just passwords` prints them; `adminEmail` is the login from `settings.nix`.
 Nextcloud, Immich and BookOrbit read their file at first setup only; rotate
@@ -183,6 +191,7 @@ Nextcloud's `files_no_background_scan` stops cron from walking the array.
 | `youtube-list`                     | print the followed shows, their seasons and URLs                     |
 | `youtube-cookies <file>`           | give ytdl-sub a signed-in YouTube session                            |
 | `tailscale-up`                     | join the tailnet; re-run after a restore                             |
+| `acme-token`                       | store the Hostinger API token, order the certificate                 |
 | `tmp-dns`                          | public DNS in `/etc/resolv.conf` until the next network change       |
 | `passwords`                        | print the generated service passwords                                |
 | `set-{pihole,nextcloud,immich}-pw` | rotate that service's admin password                                 |
@@ -289,6 +298,8 @@ Nextcloud login away. Inside:
   metadata and covers
 - Pi-hole: `pihole.toml`, `gravity.db`, `dnsmasq.d`
 - Tailscale: the node key, so a restored machine is the same node
+- the Hostinger API token for the certificate (the certificate itself is
+  ordered again)
 - MusicGrabber: its database (settings, watched playlists)
 - ytdl-sub: `YouTube/subscriptions.yaml`
 
@@ -320,6 +331,18 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   (`pihole.domains`) and added on every boot; deleting one there does not
   remove it from Pi-hole. The host itself resolves through public DNS, so a broken
   container cannot lock you out of `just rollback`.
+- **Reverse proxy** (`modules/proxy.nix`). nginx serves every web UI at
+  `https://<name>.antonkesy.de`. The names are in `subdomains` in `settings.nix`
+  and go into `/etc/hosts`, which is how Pi-hole learns them. The public zone
+  at Hostinger does not name them, so they resolve only for clients that ask
+  Pi-hole: the LAN, and a tailnet peer whose DNS is lab. One Let's Encrypt
+  wildcard covers all of them, through a DNS-01 challenge at Hostinger, so
+  nothing is reachable from the internet and the names stay out of the
+  certificate logs. Once: in hPanel, Account > API, create a token, then
+  `just acme-token` on lab. Until then nginx serves a self-signed stand-in
+  and the order is skipped. `acme-renew-antonkesy.de.timer` renews it from
+  then on. A request for any other name, or for `http://lab` itself, is
+  dropped. Nextcloud is its own nginx vhost and no longer has a port.
 - **LAN names.** Pi-hole serves `lab` and `lab.fritz.box` from the server's
   `/etc/hosts`; everything else under `fritz.box` is forwarded to the router,
   because `fritz.box` is a real public domain.
@@ -392,7 +415,7 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   upload staging area live on the SSD in `/var/lib/bookorbit/data`. The
   image tag is pinned in `settings.nix` (`bookOrbit.image`); the container
   runs read-only with the capabilities upstream's compose grants and nothing
-  more. `APP_URL` is `http://lab.fritz.box:3000`, which is what a Kobo gets
+  more. `APP_URL` is `https://books.antonkesy.de`, which is what a Kobo gets
   told to sync against.
 - **ytdl-sub** (`modules/ytdl-sub.nix`) archives YouTube channels into
   `/mnt/storage/YouTube` as Jellyfin TV shows; adding one is under **Day to

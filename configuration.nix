@@ -20,6 +20,7 @@
     ./modules/musicgrabber.nix
     ./modules/nextcloud.nix
     ./modules/pihole.nix
+    ./modules/proxy.nix
     ./modules/paperless.nix
     ./modules/secrets.nix
     ./modules/users.nix

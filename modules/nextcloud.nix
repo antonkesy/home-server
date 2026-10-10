@@ -7,9 +7,8 @@
 }:
 
 let
-  port = settings.ports.nextcloud;
   storage = settings.storage.root;
-  host = config.networking.hostName;
+  fqdn = "${settings.subdomains.nextcloud}.${settings.domain}";
   occ = lib.getExe config.services.nextcloud.occ;
   ncfg = settings.nextcloud;
 
@@ -130,7 +129,9 @@ in
     enable = true;
     # one major version per upgrade
     package = pkgs.nextcloud34;
-    hostName = host;
+    # the vhost; the certificate is modules/proxy.nix's wildcard
+    hostName = fqdn;
+    https = true;
     config = {
       # seeds the install; rotate with `just set-nextcloud-pw`
       adminpassFile = "/var/lib/nextcloud/admin-pass";
@@ -140,21 +141,14 @@ in
     # peer auth over the unix socket; also orders setup after postgresql.target
     database.createLocally = true;
     settings = {
-      overwriteprotocol = "http";
-      # without the port, links point at :80
-      overwritehost = "${host}:${toString port}";
       default_phone_region = settings.phoneRegion;
       # cron would otherwise walk the external storages every 15 minutes and
       # keep the disks awake; nextcloud-media-watch sees real changes already
       files_no_background_scan = true;
       # UTC hour for the heavy daily jobs
       maintenance_window_start = 4;
-      # the module adds hostName
-      trusted_domains = [
-        "localhost"
-        settings.lan.address
-        "${host}.${settings.lan.domain}"
-      ];
+      # the module adds hostName; localhost is occ and the preview units
+      trusted_domains = [ "localhost" ];
 
       # upstream's imaginary list has no video provider
       enabledPreviewProviders = [
@@ -208,13 +202,10 @@ in
   # the array is group-writable by setgid + default ACL (modules/storage.nix)
   users.users.nextcloud.extraGroups = [ settings.group ];
 
-  # upstream: :80, which would not match overwritehost
-  services.nginx.virtualHosts.${host}.listen = [
-    {
-      addr = "0.0.0.0";
-      port = port;
-    }
-  ];
+  services.nginx.virtualHosts.${fqdn} = {
+    useACMEHost = settings.domain;
+    forceSSL = true;
+  };
 
   systemd.services.phpfpm-nextcloud.path = previewTools;
   systemd.services.nextcloud-cron.path = previewTools;

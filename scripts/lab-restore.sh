@@ -58,7 +58,7 @@ chown -R 1000:1000 /var/lib/pihole
 secrets=()
 for f in /var/lib/nextcloud/admin-pass /var/lib/paperless/admin-pass /var/lib/immich/admin-pass \
   /var/lib/pihole/pihole.env \
-  /var/lib/bookorbit/admin-pass /var/lib/bookorbit/bookorbit.env; do
+  /var/lib/bookorbit/admin-pass /var/lib/bookorbit/bookorbit.env /var/lib/acme/hostinger.env; do
   [ -e "$f" ] && secrets+=("$f")
 done
 chown root:root "${secrets[@]}" /etc/ssh/ssh_host_*_key*
@@ -102,5 +102,7 @@ systemctl start nextcloud-cron.timer \
 systemctl start --no-block nextcloud-media-scan.service
 systemctl start immich-server.service immich-machine-learning.service tailscaled.service
 systemctl start --no-block immich-setup.service bookorbit-setup.service
+# skipped at boot while the token was missing
+systemctl start --no-block 'acme-order-renew-*.service'
 
 echo "restored; check with: just status && just passwords"

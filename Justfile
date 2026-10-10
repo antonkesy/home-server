@@ -39,7 +39,7 @@ rollback:
 
 # Unit status
 status:
-    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service audiobookshelf.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service tailscaled.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service bookorbit-setup.service pihole-domains.service lab-backup.timer ytdl-sub-youtube.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
+    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service audiobookshelf.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service tailscaled.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service bookorbit-setup.service pihole-domains.service acme-renew-antonkesy.de.timer lab-backup.timer ytdl-sub-youtube.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
 
 # Join the tailnet (opens a login URL); re-run after a restore
 tailscale-up:
@@ -118,6 +118,16 @@ youtube-list:
 youtube-cookies file:
     sudo install -o ytdl-sub -g ytdl-sub -m 0600 "{{ file }}" /var/lib/ytdl-sub/youtube/cookies.txt
     @echo "installed; delete {{ file }}, it is a signed-in session"
+
+# Store the Hostinger API token for the *.antonkesy.de certificate, then order it
+acme-token:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    read -rsp "Hostinger API token: " token; echo
+    printf 'HOSTINGER_API_TOKEN=%s\n' "$token" | sudo install -m 0600 /dev/stdin /var/lib/acme/hostinger.env
+    domain=$(nix eval --raw --file "{{ settings }}" domain)
+    sudo systemctl start "acme-order-renew-$domain.service"
+    sudo journalctl -u "acme-order-renew-$domain" -n 20 --no-pager
 
 # Garbage-collect; also drops the rollback generations
 clean:

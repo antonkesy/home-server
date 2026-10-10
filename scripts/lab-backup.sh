@@ -53,6 +53,7 @@ for p in etc/ssh/ssh_host_*_key etc/ssh/ssh_host_*_key.pub \
   var/lib/paperless/superuser-state var/lib/paperless/src-version \
   var/lib/immich/admin-pass var/lib/immich/profile \
   var/lib/bookorbit/admin-pass var/lib/bookorbit/bookorbit.env var/lib/bookorbit/data \
+  var/lib/acme/hostinger.env \
   var/lib/hass var/lib/jellyfin var/lib/audiobookshelf var/lib/pihole var/lib/musicgrabber var/lib/tailscale \
   "${LAB_YOUTUBE_SUBSCRIPTIONS#/}"; do
   [ -e "$p" ] && include+=("$p")

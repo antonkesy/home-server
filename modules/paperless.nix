@@ -33,6 +33,9 @@ in
     mediaDir = media;
     settings = {
       PAPERLESS_OCR_LANGUAGE = settings.ocrLanguages;
+      # the csrf origin behind the proxy (modules/proxy.nix); the port keeps
+      # working, the allowed hosts stay at upstream's "*"
+      PAPERLESS_URL = "https://${settings.subdomains.paperless}.${settings.domain}";
       # a scan dropped into a subfolder of consume/ is ignored otherwise
       PAPERLESS_CONSUMER_RECURSIVE = true;
       # upstream: every sunday. it checksums every file on the array, so it

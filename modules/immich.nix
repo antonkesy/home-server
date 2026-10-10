@@ -8,7 +8,6 @@
 
 let
   icfg = settings.immich;
-  host = config.networking.hostName;
   port = settings.ports.immich;
   library = "${settings.storage.root}/${icfg.libraryDir}";
   mediaLocation = config.services.immich.mediaLocation;
@@ -43,7 +42,8 @@ in
     # a config file makes Administration > Settings read-only in the UI;
     # anything not named here keeps immich's default
     settings = {
-      server.externalDomain = "http://${host}:${toString port}";
+      # share links
+      server.externalDomain = "https://${settings.subdomains.immich}.${settings.domain}";
 
       # uploads: library/<storageLabel>/<year>/<month>/<original name>, i.e. a
       # tree nextcloud can browse. without this they stay under upload/ as uuids
