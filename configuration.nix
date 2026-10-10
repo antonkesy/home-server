@@ -19,6 +19,7 @@
     ./modules/jellyfin.nix
     ./modules/musicgrabber.nix
     ./modules/nextcloud.nix
+    ./modules/overview.nix
     ./modules/pihole.nix
     ./modules/proxy.nix
     ./modules/paperless.nix

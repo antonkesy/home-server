@@ -34,8 +34,10 @@ in
   # only resolve on the LAN, through pi-hole; the domain's public records are
   # left alone
   domain = "antonkesy.de";
-  # keyed like `ports`; nextcloud has no port, nginx serves it directly
+  # keyed like `ports`; nextcloud has no port, nginx serves it directly, and
+  # overview is the start page linking all the others (modules/overview.nix)
   subdomains = {
+    overview = "lab";
     homeAssistant = "home";
     jellyfin = "jellyfin";
     audiobookshelf = "audiobooks";

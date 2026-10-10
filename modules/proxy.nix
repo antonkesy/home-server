@@ -12,9 +12,13 @@ let
   # HOSTINGER_API_TOKEN=..., from `just acme-token`; hPanel > Account > API
   tokenFile = "/var/lib/acme/hostinger.env";
 
-  # every subdomain but nextcloud, which is its own nginx vhost
-  # (modules/nextcloud.nix) and only needs the certificate
-  proxied = lib.removeAttrs subdomains [ "nextcloud" ];
+  # every subdomain but nextcloud and the overview, which are their own nginx
+  # vhosts (modules/nextcloud.nix, modules/overview.nix) and only need the
+  # certificate
+  proxied = lib.removeAttrs subdomains [
+    "nextcloud"
+    "overview"
+  ];
   unknown = lib.subtractLists (lib.attrNames ports) (lib.attrNames proxied);
 
   vhost = name: {
@@ -71,12 +75,12 @@ in
     virtualHosts = lib.mapAttrs' (name: _: lib.nameValuePair (fqdn name) (vhost name)) proxied // {
       ${fqdn "pihole"}.locations."= /".return = "302 /admin/";
 
-      # http://lab and anything else not named above: no vhost answers
-      # by accident
+      # http://lab and anything else not named above lands on the overview;
+      # https for an unknown name is refused at the handshake
       "_" = {
         default = true;
         rejectSSL = true;
-        locations."/".return = "444";
+        locations."/".return = "302 https://${fqdn "overview"}";
       };
     };
   };

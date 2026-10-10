@@ -140,7 +140,10 @@ built into the mirror once by hand; see **Storage** below.
 | Tailscale      | -                                                                  | `just tailscale-up` once, logs in via browser       | [Tailscale](https://play.google.com/store/apps/details?id=com.tailscale.ipn) (Android); [desktop clients](https://tailscale.com/download)                                                                                                             |
 | Pi-hole        | [https://pihole.antonkesy.de](https://pihole.antonkesy.de)         | `/var/lib/pihole/pihole.env`                        | web only                                                                                                                                                                                                                                              |
 
-The names resolve on the LAN only, through Pi-hole (**Notes**, *Reverse
+[https://lab.antonkesy.de](https://lab.antonkesy.de) is a start page linking
+all of them, with a dot for whether each one answers; `http://lab` lands
+there too. Its cards are listed in `modules/overview.nix`, and the build fails
+if a subdomain has no card. The names resolve on the LAN only, through Pi-hole (**Notes**, *Reverse
 proxy*). Apart from Nextcloud, `http://lab:<port>` keeps working (ports in
 `settings.nix`); the Pi-hole UI is `/admin` there.
 
@@ -341,8 +344,8 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   certificate logs. Once: in hPanel, Account > API, create a token, then
   `just acme-token` on lab. Until then nginx serves a self-signed stand-in
   and the order is skipped. `acme-renew-antonkesy.de.timer` renews it from
-  then on. A request for any other name, or for `http://lab` itself, is
-  dropped. Nextcloud is its own nginx vhost and no longer has a port.
+  then on. Plain HTTP for any other name, `http://lab` included,
+  redirects to the start page; HTTPS for an unknown name is refused. Nextcloud is its own nginx vhost and no longer has a port.
 - **LAN names.** Pi-hole serves `lab` and `lab.fritz.box` from the server's
   `/etc/hosts`; everything else under `fritz.box` is forwarded to the router,
   because `fritz.box` is a real public domain.
