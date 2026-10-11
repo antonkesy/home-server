@@ -80,17 +80,22 @@ in
     recommendedOptimisation = true;
     recommendedGzipSettings = true;
 
-    virtualHosts = lib.mapAttrs' (name: _: lib.nameValuePair (fqdn name) (vhost name)) proxied // {
-      ${fqdn "pihole"}.locations."= /".return = "302 /admin/";
+    # merged, not `//`: that would replace pi-hole's whole vhost with the
+    # redirect alone, dropping its proxy and certificate
+    virtualHosts = lib.mkMerge [
+      (lib.mapAttrs' (name: _: lib.nameValuePair (fqdn name) (vhost name)) proxied)
+      {
+        ${fqdn "pihole"}.locations."= /".return = "302 /admin/";
 
-      # http://lab and anything else not named above lands on the overview;
-      # https for an unknown name is refused at the handshake
-      "_" = {
-        default = true;
-        rejectSSL = true;
-        locations."/".return = "302 https://${fqdn "overview"}";
-      };
-    };
+        # http://lab and anything else not named above lands on the overview;
+        # https for an unknown name is refused at the handshake
+        "_" = {
+          default = true;
+          rejectSSL = true;
+          locations."/".return = "302 https://${fqdn "overview"}";
+        };
+      }
+    ];
   };
 
   # pi-hole serves /etc/hosts to the LAN (modules/networking.nix), so this is
