@@ -63,7 +63,15 @@ in
 
   # until the token is there nginx serves the module's self-signed stand-in, and
   # the order is skipped rather than failing every switch
-  systemd.services."acme-order-renew-${domain}".unitConfig.ConditionPathExists = tokenFile;
+  systemd.services."acme-order-renew-${domain}" = {
+    unitConfig.ConditionPathExists = tokenFile;
+    # lego's 60s default is shorter than hostinger takes to put a new record on
+    # its nameservers; the order then fails with the record still unseen
+    environment = {
+      HOSTINGER_PROPAGATION_TIMEOUT = "900";
+      HOSTINGER_POLLING_INTERVAL = "15";
+    };
+  };
 
   services.nginx = {
     enable = true;
