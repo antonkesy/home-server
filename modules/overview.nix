@@ -86,8 +86,9 @@ let
   listed = lib.concatMap (g: map (s: s.key) g.services) groups;
   missing = lib.subtractLists (listed ++ [ "overview" ]) (lib.attrNames subdomains);
 
-  # what /up/<key> asks; anything below 500 counts as up. nextcloud has no
-  # port, so its own vhost is asked, over the name /etc/hosts gives it
+  # what /up/<key> asks; anything below 500 counts as up. nextcloud's port
+  # is only nginx's copy of its vhost, so the vhost itself is asked, over the
+  # name /etc/hosts gives it
   upstream =
     key:
     if key == "nextcloud" then
@@ -96,7 +97,7 @@ let
       "http://127.0.0.1:${toString ports.${key}}/";
 
   # the port each service still answers on directly, as http://lab:<port>;
-  # nextcloud has none, pi-hole's UI is under /admin
+  # pi-hole's UI is under /admin
   direct =
     key:
     lib.optionalString (ports ? ${key}) (
@@ -112,7 +113,9 @@ let
         <span class="about">${s.about}</span>
         <span class="links">
           <span>${fqdn s.key}</span>
-          ${lib.optionalString (direct s.key != "") ''<a href="http://${direct s.key}">${direct s.key}</a>''}
+          ${lib.optionalString (
+            direct s.key != ""
+          ) ''<a href="http://${direct s.key}">${direct s.key}</a>''}
         </span>
       </span>
     </div>

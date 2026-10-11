@@ -9,6 +9,8 @@
 let
   storage = settings.storage.root;
   fqdn = "${settings.subdomains.nextcloud}.${settings.domain}";
+  host = settings.hostName;
+  port = settings.ports.nextcloud;
   occ = lib.getExe config.services.nextcloud.occ;
   ncfg = settings.nextcloud;
 
@@ -147,8 +149,14 @@ in
       files_no_background_scan = true;
       # UTC hour for the heavy daily jobs
       maintenance_window_start = 4;
-      # the module adds hostName; localhost is occ and the preview units
-      trusted_domains = [ "localhost" ];
+      # the module adds hostName; localhost is occ and the preview units, the
+      # rest the plain-http fallback on the port below
+      trusted_domains = [
+        "localhost"
+        host
+        "${host}.${settings.lan.domain}"
+        settings.lan.address
+      ];
 
       # upstream's imaginary list has no video provider
       enabledPreviewProviders = [
@@ -206,6 +214,35 @@ in
     useACMEHost = settings.domain;
     forceSSL = true;
   };
+
+  # http://lab:<port> for a client that does not ask pi-hole and so has no
+  # name for the vhost above. a copy of it rather than a second listen: the
+  # module hardcodes `fastcgi_param HTTPS on`, and nextcloud would then mark its
+  # cookies Secure and __Host-, which a browser drops over http. overwrite*
+  # stay unset, so links follow whichever of the two was asked
+  services.nginx.virtualHosts."${host}-nextcloud" =
+    let
+      upstream = config.services.nginx.virtualHosts.${fqdn};
+    in
+    {
+      serverName = host;
+      listen = [
+        {
+          addr = "0.0.0.0";
+          inherit port;
+        }
+      ];
+      inherit (upstream) root extraConfig;
+      locations = lib.mapAttrs (
+        _: location:
+        location
+        // {
+          extraConfig =
+            lib.replaceStrings [ "fastcgi_param HTTPS on;" ] [ "fastcgi_param HTTPS off;" ]
+              location.extraConfig;
+        }
+      ) upstream.locations;
+    };
 
   systemd.services.phpfpm-nextcloud.path = previewTools;
   systemd.services.nextcloud-cron.path = previewTools;

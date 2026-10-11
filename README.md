@@ -55,7 +55,7 @@ flowchart TD
     ts["tailscaled<br>:41641/udp, tailscale0 trusted"]
     ph["pi-hole in podman<br>:53 DNS, :4000 UI"]
     has["home-assistant :8123"]
-    ngx["nginx :80, :443<br>*.antonkesy.de"]
+    ngx["nginx :80, :443<br>*.antonkesy.de<br>:8080 nextcloud"]
     ncb["phpfpm-nextcloud<br>imaginary"]
     jfb["jellyfin :8096"]
     abs["audiobookshelf :13378"]
@@ -104,8 +104,9 @@ flowchart TD
   tb["lab-backup.timer<br>Sun 05:30"] --> bak
 ```
 
-Every web UI has its own `https://<name>.antonkesy.de` behind nginx; apart
-from Nextcloud, each also still answers on its own port (dotted). The array is the only thing that idles out, so
+Every web UI has its own `https://<name>.antonkesy.de` behind nginx,
+and each also still answers on its own port (dotted; Nextcloud's is nginx's
+own :8080). The array is the only thing that idles out, so
 the services on the left of it stay up and the disks on the right go to
 sleep. Not drawn are the jobs that wake them on a schedule - `mdraid-scrub`
 and the Paperless sanity check on the first Saturday, `lab-backup` on Sunday
@@ -132,7 +133,7 @@ built into the mirror once by hand; see **Storage** below.
 | Home Assistant | [https://home.antonkesy.de](https://home.antonkesy.de)             | [http://lab:8123](http://lab:8123)             | set up on first visit                               | [Home Assistant Companion](https://play.google.com/store/apps/details?id=io.homeassistant.companion.android) (Android); web on desktop                                                                                                                |
 | Jellyfin       | [https://jellyfin.antonkesy.de](https://jellyfin.antonkesy.de)     | [http://lab:8096](http://lab:8096)             | set up on first visit                               | [Jellyfin](https://play.google.com/store/apps/details?id=org.jellyfin.mobile) or [Findroid](https://github.com/jarnedemeulemeester/findroid) (Android); [Jellyfin Media Player](https://github.com/jellyfin/jellyfin-media-player/releases) (desktop) |
 | Audiobookshelf | [https://audiobooks.antonkesy.de](https://audiobooks.antonkesy.de) | [http://lab:13378](http://lab:13378)           | set up on first visit                               | [Audiobookshelf](https://play.google.com/store/apps/details?id=com.audiobookshelf.app) (Android); web on desktop                                                                                                                                      |
-| Nextcloud      | [https://cloud.antonkesy.de](https://cloud.antonkesy.de)           | -                                              | `/var/lib/nextcloud/admin-pass` (user `root`)       | [Nextcloud Files](https://play.google.com/store/apps/details?id=com.nextcloud.client) (Android); [Nextcloud Desktop](https://nextcloud.com/install/) (sync client)                                                                                    |
+| Nextcloud      | [https://cloud.antonkesy.de](https://cloud.antonkesy.de)           | [http://lab:8080](http://lab:8080)             | `/var/lib/nextcloud/admin-pass` (user `root`)       | [Nextcloud Files](https://play.google.com/store/apps/details?id=com.nextcloud.client) (Android); [Nextcloud Desktop](https://nextcloud.com/install/) (sync client)                                                                                    |
 | Paperless-ngx  | [https://paperless.antonkesy.de](https://paperless.antonkesy.de)   | [http://lab:28981](http://lab:28981)           | `/var/lib/paperless/admin-pass` (user `admin`)      | [Paperless Mobile](https://github.com/astubenbord/paperless-mobile) (Android); web on desktop                                                                                                                                                         |
 | Immich         | [https://photos.antonkesy.de](https://photos.antonkesy.de)         | [http://lab:2283](http://lab:2283)             | `/var/lib/immich/admin-pass` (user `adminEmail`)    | [Immich](https://play.google.com/store/apps/details?id=app.alextran.immich) (Android, backs up the camera roll); web on desktop                                                                                                                       |
 | MusicGrabber   | [https://music.antonkesy.de](https://music.antonkesy.de)           | [http://lab:38274](http://lab:38274)           | none                                                | web only                                                                                                                                                                                                                                              |
@@ -145,7 +146,7 @@ all of them, by name and by port, with a dot for whether each one answers;
 `http://lab` lands there too. Its cards are listed in `modules/overview.nix`,
 and the build fails if a subdomain has no card. The names resolve on the LAN
 only, through Pi-hole (**Notes**, *Reverse proxy*). The ports keep working
-alongside them (`settings.nix`); Nextcloud is the one without.
+alongside them (`settings.nix`), for a client that does not use Pi-hole.
 
 `just passwords` prints them; `adminEmail` is the login from `settings.nix`.
 Nextcloud, Immich and BookOrbit read their file at first setup only; rotate
@@ -345,7 +346,9 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   `just acme-token` on lab. Until then nginx serves a self-signed stand-in
   and the order is skipped. `acme-renew-antonkesy.de.timer` renews it from
   then on. Plain HTTP for any other name, `http://lab` included,
-  redirects to the start page; HTTPS for an unknown name is refused. Nextcloud is its own nginx vhost and no longer has a port.
+  redirects to the start page; HTTPS for an unknown name is refused. Nextcloud is its own nginx vhost, plus a plain-HTTP copy of it on
+  :8080 with `fastcgi_param HTTPS off`; on one shared vhost Nextcloud would
+  mark its cookies Secure and the browser would drop them over HTTP.
 - **LAN names.** Pi-hole serves `lab` and `lab.fritz.box` from the server's
   `/etc/hosts`; everything else under `fritz.box` is forwarded to the router,
   because `fritz.box` is a real public domain.

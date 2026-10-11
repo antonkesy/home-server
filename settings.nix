@@ -34,7 +34,7 @@ in
   # only resolve on the LAN, through pi-hole; the domain's public records are
   # left alone
   domain = "antonkesy.de";
-  # keyed like `ports`; nextcloud has no port, nginx serves it directly, and
+  # keyed like `ports`; nextcloud is served by nginx itself, and
   # overview is the start page linking all the others (modules/overview.nix)
   subdomains = {
     overview = "lab";
@@ -219,6 +219,8 @@ in
     http = 80;
     https = 443;
     pihole = 4000;
+    # plain http fallback; the vhost itself is cloud.<domain>
+    nextcloud = 8080;
     # jellyfin reads its port from its own network.xml; 8096 is that default
     jellyfin = 8096;
     homeAssistant = 8123;
