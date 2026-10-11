@@ -143,6 +143,10 @@ in
     # peer auth over the unix socket; also orders setup after postgresql.target
     database.createLocally = true;
     settings = {
+      # empty = the host the request came in on, so both vhosts link to
+      # themselves. set explicitly because "lab:8080" from before the proxy
+      # lingers in config.php: nextcloud writes the override values back there
+      overwritehost = "";
       default_phone_region = settings.phoneRegion;
       # cron would otherwise walk the external storages every 15 minutes and
       # keep the disks awake; nextcloud-media-watch sees real changes already
