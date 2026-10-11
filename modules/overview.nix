@@ -95,15 +95,27 @@ let
     else
       "http://127.0.0.1:${toString ports.${key}}/";
 
+  # the port each service still answers on directly, as http://lab:<port>;
+  # nextcloud has none, pi-hole's UI is under /admin
+  direct =
+    key:
+    lib.optionalString (ports ? ${key}) (
+      "${settings.hostName}:${toString ports.${key}}" + lib.optionalString (key == "pihole") "/admin"
+    );
+
+  # the whole card opens the subdomain; the port is its own link on top
   card = s: ''
-    <a class="card" href="https://${fqdn s.key}" data-key="${s.key}">
+    <div class="card" data-key="${s.key}">
       <span class="badge" style="--c: ${s.color}">${lib.substring 0 1 s.name}</span>
       <span class="text">
-        <span class="name">${s.name}<span class="dot" title="checking"></span></span>
+        <a class="name" href="https://${fqdn s.key}">${s.name}<span class="dot" title="checking"></span></a>
         <span class="about">${s.about}</span>
-        <span class="host">${fqdn s.key}</span>
+        <span class="links">
+          <span>${fqdn s.key}</span>
+          ${lib.optionalString (direct s.key != "") ''<a href="http://${direct s.key}">${direct s.key}</a>''}
+        </span>
       </span>
-    </a>
+    </div>
   '';
 
   group = g: ''
@@ -149,12 +161,14 @@ let
       }
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
       .card {
-        display: flex; gap: 14px; align-items: flex-start; padding: 16px;
+        position: relative; display: flex; gap: 14px; align-items: flex-start; padding: 16px;
         background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-        color: inherit; text-decoration: none;
         transition: border-color .15s, transform .15s;
       }
-      .card:hover, .card:focus-visible { border-color: var(--muted); transform: translateY(-1px); outline: none; }
+      .card:hover, .card:focus-within { border-color: var(--muted); transform: translateY(-1px); }
+      .card a { color: inherit; text-decoration: none; }
+      .name::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+      .name:focus-visible { outline: none; }
       .badge {
         flex: none; display: grid; place-items: center; width: 42px; height: 42px;
         border-radius: 10px; background: var(--c); color: #fff; font-weight: 700; font-size: 19px;
@@ -162,7 +176,12 @@ let
       .text { display: flex; flex-direction: column; min-width: 0; }
       .name { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 16px; }
       .about { color: var(--muted); margin-top: 2px; }
-      .host { color: var(--muted); font-size: 12px; margin-top: 6px; font-family: ui-monospace, monospace; }
+      .links {
+        display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 6px;
+        color: var(--muted); font-size: 12px; font-family: ui-monospace, monospace;
+      }
+      .links a { position: relative; z-index: 1; text-decoration: underline dotted; }
+      .links a:hover { color: var(--fg); }
       .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
       .dot.up { background: var(--up); }
       .dot.down { background: var(--down); }
