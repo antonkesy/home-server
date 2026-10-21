@@ -85,6 +85,23 @@ let
         ((. // {}) | with_entries(.key |= sub("^~?", "~")))
     }' ${showsFile} > ${subscriptions}
   '';
+
+  # the presets set ignoreerrors, so a run youtube blocked whole still exits 0
+  # with every show ✔ and 0 files. the bot check is what that looks like; a
+  # private or members-only video errors on every run, so those only count
+  check = pkgs.writeShellScript "ytdl-sub-youtube-check" ''
+    set -euo pipefail
+    # the last lines of the stream may not be indexed yet
+    journalctl --sync
+    log=$(journalctl --quiet --output=cat _SYSTEMD_INVOCATION_ID="$INVOCATION_ID")
+    errors=$(grep -c 'ERROR:' <<<"$log" || true)
+    blocked=$(grep -c "confirm you.re not a bot" <<<"$log" || true)
+    echo "$errors yt-dlp errors this run"
+    if [ "$blocked" -gt 0 ]; then
+      echo "$blocked videos hit youtube's bot check: cookies missing or expired, see \`just youtube-cookies\`" >&2
+      exit 1
+    fi
+  '';
 in
 {
   assertions = [
@@ -121,6 +138,8 @@ in
     unitConfig.RequiresMountsFor = [ ycfg.dir ];
     serviceConfig = {
       ExecStartPre = [ "${prepare}" ];
+      # +: as root, the system journal is not readable for ytdl-sub
+      ExecStartPost = [ "+${check}" ];
       # upstream reads a subscriptions file generated from nix
       ExecStart = lib.mkForce "${lib.getExe config.services.ytdl-sub.package} --config ${yaml.generate "config.yaml" instance.config} sub ${subscriptions}";
       # what it writes on the array stays writable for ak and nextcloud
@@ -131,4 +150,7 @@ in
       TimeoutStartSec = "infinity";
     };
   };
+
+  # upstream's startAt timer; a run missed while lab was off is made up at boot
+  systemd.timers.ytdl-sub-youtube.timerConfig.Persistent = true;
 }

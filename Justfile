@@ -98,7 +98,7 @@ scan-photos:
     sudo systemctl restart --no-block immich-setup.service
     sudo journalctl -u immich-setup -f -n 50
 
-# Download new videos for every show in YouTube/subscriptions.yaml now instead of at 02:30
+# Download new videos for every show in YouTube/subscriptions.yaml now instead of waiting for the timer
 youtube:
     sudo systemctl start --no-block ytdl-sub-youtube.service
     sudo journalctl -u ytdl-sub-youtube -f -n 50
