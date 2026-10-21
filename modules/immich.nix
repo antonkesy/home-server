@@ -63,6 +63,9 @@ in
         watch.enabled = true;
       };
 
+      # out of midnight, into the window the library scan wakes the disks for
+      nightlyTasks.startTime = icfg.nightlyAt;
+
       ffmpeg = {
         accel = "qsv";
         accelDecode = true;

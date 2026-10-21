@@ -97,6 +97,15 @@ in
     # nightly external-library scan, in the same disk-wake window as
     # nextcloud.previewOnCalendar
     scanCron = "30 2 * * *";
+    # thumbnails, memories, face clustering; upstream runs them at midnight
+    nightlyAt = "02:30";
+  };
+
+  # modules/jellyfin.nix
+  jellyfin = {
+    # the full library scan, daily instead of upstream's every 12 h counted
+    # from startup. after ytdl-sub's 02:30 run, in the same disk-wake window
+    libraryScanAt = "02:45";
   };
 
   # modules/nextcloud.nix
