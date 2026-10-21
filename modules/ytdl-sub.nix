@@ -31,7 +31,7 @@ let
           echo '# one entry per show; each URL is a season. s01 is usually the'
           echo '# channel (every upload), s02 and up playlists, s00 specials. a'
           echo '# video in several lands once, in the highest season. read on'
-          echo '# every run (02:30, or `just youtube`)'
+          echo '# every run (${ycfg.onCalendar}, or `just youtube`)'
           ${yq} -P -o yaml "$showsPath"
         } > $out
       '';

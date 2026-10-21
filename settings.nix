@@ -94,18 +94,18 @@ in
     # uploads from the app; under the library dir so nextcloud sees them, and
     # excluded from the external library so immich does not import them twice
     uploadDir = "${storageRoot}/Photos/Immich";
-    # nightly external-library scan, in the same disk-wake window as
+    # daily external-library scan, in the same disk-wake window as
     # nextcloud.previewOnCalendar
-    scanCron = "30 2 * * *";
+    scanCron = "0 8 * * *";
     # thumbnails, memories, face clustering; upstream runs them at midnight
-    nightlyAt = "02:30";
+    nightlyAt = "08:00";
   };
 
   # modules/jellyfin.nix
   jellyfin = {
     # the full library scan, daily instead of upstream's every 12 h counted
-    # from startup. after ytdl-sub's 02:30 run, in the same disk-wake window
-    libraryScanAt = "02:45";
+    # from startup. after ytdl-sub's 08:00 run, in the same disk-wake window
+    libraryScanAt = "08:15";
   };
 
   # modules/nextcloud.nix
@@ -115,8 +115,8 @@ in
     previewDirs = [ "Photos" ];
     # a preview run is skipped while / has less free than this, in GB
     previewMinFreeGB = 50;
-    # nightly pass over previewDirs, ahead of the 03:15 nix gc
-    previewOnCalendar = "02:30";
+    # daily pass over previewDirs
+    previewOnCalendar = "08:00";
   };
 
   # modules/musicgrabber.nix: single-track downloads from the web UI
@@ -167,11 +167,11 @@ in
     ];
     # a video is fetched only once it is this many days old, so the
     # crowd-sourced sponsorblock segments have had time to arrive. 0 is the
-    # night after the upload
+    # morning after the upload
     delayDays = 3;
-    # nightly, in the window nextcloud.previewOnCalendar already wakes the
+    # daily, in the window nextcloud.previewOnCalendar already wakes the
     # disks for
-    onCalendar = "02:30";
+    onCalendar = "08:00";
     # the shows live in <dir>/subscriptions.yaml, edited in nextcloud and read
     # on every run. this only seeds that file when it does not exist yet.
     # show name -> seasons, as ytdl-sub's TV Show Collection takes them.

@@ -53,7 +53,7 @@ in
       };
 
       library = {
-        # the nightly pass over the external library
+        # the daily pass over the external library
         scan = {
           enabled = true;
           cronExpression = icfg.scanCron;
