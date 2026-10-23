@@ -2,7 +2,7 @@
 
 let
   users = [
-    "nextcloud-setup.service"
+    "nextcloud-admin.service"
     "paperless-scheduler.service"
     "paperless-web.service"
     "paperless-consumer.service"

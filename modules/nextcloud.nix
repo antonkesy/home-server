@@ -135,8 +135,6 @@ in
     hostName = fqdn;
     https = true;
     config = {
-      # seeds the install; rotate with `just set-nextcloud-pw`
-      adminpassFile = "/var/lib/nextcloud/admin-pass";
       # sqlite would park every request behind an occ files:scan
       dbtype = "pgsql";
     };
@@ -257,6 +255,27 @@ in
   systemd.services.nextcloud-cron.serviceConfig.UMask = "0002";
 
   systemd.services.phpfpm-nextcloud.serviceConfig.UMask = "0002";
+
+  # upstream installs without an admin since adminpassFile went away, so root is
+  # seeded here. only when missing: `just set-nextcloud-pw` rotates it after that
+  systemd.services.nextcloud-admin = {
+    wantedBy = [ "multi-user.target" ];
+    after = [ "nextcloud-setup.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      User = "nextcloud";
+      ExecCondition = "${occ} status --exit-code";
+      # the file is root's 0600 (modules/secrets.nix)
+      LoadCredential = "admin-pass:/var/lib/nextcloud/admin-pass";
+    };
+    script = ''
+      set -euo pipefail
+
+      ${occ} user:info root >/dev/null 2>&1 && exit 0
+      OC_PASS=$(<"$CREDENTIALS_DIRECTORY/admin-pass") \
+        ${occ} user:add --password-from-env --group admin root
+    '';
+  };
 
   # a file share only; photos are immich's (modules/immich.nix). app state
   # lives in the database, so re-asserted every boot
