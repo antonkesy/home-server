@@ -3,7 +3,7 @@
 [![check](https://github.com/antonkesy/home-server/actions/workflows/check.yml/badge.svg)](https://github.com/antonkesy/home-server/actions/workflows/check.yml)
 
 Home server (`lab`) running Home Assistant, Immich, Jellyfin, Audiobookshelf,
-Nextcloud, Paperless-ngx, Pi-hole, MusicGrabber, BookOrbit, ytdl-sub and
+Nextcloud, Paperless-ngx, Pi-hole, MusicGrabber, BookOrbit, ytdl-sub, soju and
 Tailscale, built from a flake.
 
 ## Setup
@@ -63,6 +63,7 @@ flowchart TD
     imb["immich :2283<br>server, machine-learning"]
     mgb["musicgrabber in podman<br>:38274"]
     bob["bookorbit in podman<br>:3000"]
+    soj["soju :6697 ircs<br>irc.antonkesy.de"]
   end
 
   yts["ytdl-sub-youtube.timer<br>02:30"]
@@ -70,7 +71,7 @@ flowchart TD
   subgraph ssdg["SSD - /var/lib"]
     pg[("postgresql")]
     rd[("redis")]
-    st["paperless db + index<br>immich thumbnails<br>hass, jellyfin, audiobookshelf, pi-hole, bookorbit state"]
+    st["paperless db + index<br>immich thumbnails<br>hass, jellyfin, audiobookshelf, pi-hole, bookorbit, soju state"]
   end
 
   subgraph raid["RAID1 - /mnt/storage"]
@@ -81,7 +82,8 @@ flowchart TD
     bak["Backups<br>Backups/lab"]
   end
 
-  client --> ssh & ph & has
+  client --> ssh & ph & has & soj
+  soj --> libera["irc.libera.chat"]
   remote["tailnet peer"] --> ts --> client
   client --> ngx
   ngx --> ncb & has & jfb & abs & plb & imb & mgb & bob & ph
@@ -138,6 +140,7 @@ built into the mirror once by hand; see **Storage** below.
 | Immich         | [https://photos.antonkesy.de](https://photos.antonkesy.de)         | [http://lab:2283](http://lab:2283)             | `/var/lib/immich/admin-pass` (user `adminEmail`)    | [Immich](https://play.google.com/store/apps/details?id=app.alextran.immich) (Android, backs up the camera roll); web on desktop                                                                                                                       |
 | MusicGrabber   | [https://music.antonkesy.de](https://music.antonkesy.de)           | [http://lab:38274](http://lab:38274)           | none                                                | web only                                                                                                                                                                                                                                              |
 | BookOrbit      | [https://books.antonkesy.de](https://books.antonkesy.de)           | [http://lab:3000](http://lab:3000)             | `/var/lib/bookorbit/admin-pass` (user `adminEmail`) | web; a Kobo syncs against `APP_URL`                                                                                                                                                                                                                   |
+| soju           | `ircs://irc.antonkesy.de:6697`                                     | -                                              | `/var/lib/soju/admin-pass` (user `ak`)              | [Goguma](https://play.google.com/store/apps/details?id=fr.emersion.goguma) (Android); [Halloy](https://halloy.chat) or any IRC client (desktop)                                                                                                       |
 | Tailscale      | -                                                                  | -                                              | `just tailscale-up` once, logs in via browser       | [Tailscale](https://play.google.com/store/apps/details?id=com.tailscale.ipn) (Android); [desktop clients](https://tailscale.com/download)                                                                                                             |
 | Pi-hole        | [https://pihole.antonkesy.de](https://pihole.antonkesy.de)         | [http://lab:4000/admin](http://lab:4000/admin) | `/var/lib/pihole/pihole.env`                        | web only                                                                                                                                                                                                                                              |
 
@@ -335,6 +338,14 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   (`pihole.domains`) and added on every boot; deleting one there does not
   remove it from Pi-hole. The host itself resolves through public DNS, so a broken
   container cannot lock you out of `just rollback`.
+- **IRC** (`modules/soju.nix`). soju keeps `antonkesy` on Libera.Chat
+  connected and holds the history while no client is attached. A client
+  connects to `irc.antonkesy.de:6697` over TLS as `ak` with the password from
+  `just passwords`, and sees one server per network. To log in to NickServ,
+  register the nick once through the bouncer (`/msg NickServ REGISTER ...`),
+  then `/msg BouncerServ sasl set-plain antonkesy <password>`. More networks:
+  `/msg BouncerServ network create -addr <host>`, or `soju.networks` in
+  `settings.nix` before the first start.
 - **Reverse proxy** (`modules/proxy.nix`). nginx serves every web UI at
   `https://<name>.antonkesy.de`. The names are in `subdomains` in `settings.nix`
   and go into `/etc/hosts`, which is how Pi-hole learns them. The public zone

@@ -11,6 +11,7 @@ let
     "podman-bookorbit.service"
     "bookorbit-setup.service"
     "immich-setup.service"
+    "soju-setup.service"
   ];
 in
 {
@@ -51,6 +52,7 @@ in
       ensure /var/lib/nextcloud/admin-pass "$(pw)"
       ensure /var/lib/paperless/admin-pass "$(pw)"
       ensure /var/lib/immich/admin-pass "$(pw)"
+      ensure /var/lib/soju/admin-pass "$(pw)"
       ensure /var/lib/pihole/pihole.env "FTLCONF_webserver_api_password=$(pw)"
       ensure /var/lib/bookorbit/admin-pass "$(mixed)"
       # the setup token gates the first account (modules/bookorbit.nix)

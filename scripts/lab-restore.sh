@@ -32,7 +32,7 @@ tar --zstd -xf "$archive" -C "$stage" --occurrence=1 bookorbit.pgdump 2>/dev/nul
 
 systemctl stop home-assistant.service jellyfin.service audiobookshelf.service \
   paperless-scheduler.service paperless-task-queue.service podman-pihole.service \
-  podman-musicgrabber.service podman-bookorbit.service nginx.service phpfpm-nextcloud.service nextcloud-cron.timer nextcloud-media-watch.service \
+  podman-musicgrabber.service podman-bookorbit.service soju.service nginx.service phpfpm-nextcloud.service nextcloud-cron.timer nextcloud-media-watch.service \
   immich-server.service immich-machine-learning.service tailscaled.service
 
 # fresh-install WALs would replay over the restored db
@@ -54,10 +54,11 @@ chown -R paperless:paperless /var/lib/paperless
 chown -R 1000:1000 /var/lib/pihole
 [ -d /var/lib/musicgrabber ] && chown -R 1000:1000 /var/lib/musicgrabber
 [ -d /var/lib/bookorbit/data ] && chown -R 1000:1000 /var/lib/bookorbit/data
+[ -d /var/lib/soju ] && chown -R soju:soju /var/lib/soju
 
 secrets=()
 for f in /var/lib/nextcloud/admin-pass /var/lib/paperless/admin-pass /var/lib/immich/admin-pass \
-  /var/lib/pihole/pihole.env \
+  /var/lib/pihole/pihole.env /var/lib/soju/admin-pass \
   /var/lib/bookorbit/admin-pass /var/lib/bookorbit/bookorbit.env /var/lib/acme/hostinger.env; do
   [ -e "$f" ] && secrets+=("$f")
 done
@@ -97,11 +98,11 @@ nextcloud-occ files:scan --all --home-only
 
 systemctl start nextcloud-cron.timer \
   nextcloud-external-storage.service nextcloud-media-watch.service \
-  home-assistant.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service \
+  home-assistant.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service soju.service \
   jellyfin.service audiobookshelf.service paperless-scheduler.service nginx.service phpfpm-nextcloud.service
 systemctl start --no-block nextcloud-media-scan.service
 systemctl start immich-server.service immich-machine-learning.service tailscaled.service
-systemctl start --no-block immich-setup.service bookorbit-setup.service
+systemctl start --no-block immich-setup.service bookorbit-setup.service soju-setup.service
 # skipped at boot while the token was missing
 systemctl start --no-block 'acme-order-renew-*.service'
 

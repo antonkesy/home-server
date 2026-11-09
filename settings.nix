@@ -189,6 +189,21 @@ in
     };
   };
 
+  # modules/soju.nix: the irc bouncer, ircs://<subdomain>.<domain>:<ports.soju>.
+  # the login is `user`, the password /var/lib/soju/admin-pass
+  soju = {
+    subdomain = "irc";
+    # created on the first start only; afterwards BouncerServ owns them. the
+    # nickserv login goes in by hand: /msg BouncerServ sasl set-plain
+    networks = [
+      {
+        name = "libera";
+        addr = "ircs://irc.libera.chat:6697";
+        nick = "antonkesy";
+      }
+    ];
+  };
+
   # `just backup`, `just restore`
   backup = {
     # lab's own archives, under the user-facing Backups
@@ -238,5 +253,7 @@ in
     musicGrabber = 38274;
     bookOrbit = 3000;
     audiobookshelf = 13378;
+    # ircs, not behind the proxy (modules/soju.nix)
+    soju = 6697;
   };
 }
