@@ -32,7 +32,7 @@ in
   # modules/wifi.nix: lab's link to the LAN. the passphrase is not here but
   # in /var/lib/wifi/secrets, from `just wifi-psk`
   wifi = {
-    ssid = "FRITZ!Box 7590 XX";
+    ssid = "/dev/wifi";
     # regulatory domain, ISO 3166 code
     country = "DE";
   };
