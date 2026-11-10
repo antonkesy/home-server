@@ -69,6 +69,49 @@ storage:
     # standby = spun down, active/idle = spinning
     sudo hdparm -C /dev/sda /dev/sdb || true
 
+# Every USB device in settings.nix's usb at its port, at its speed, claimed by a driver
+check-usb:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    shopt -s nullglob
+    sys=/sys/bus/usb/devices
+    rd() { cat "$1" 2>/dev/null || true; }
+    id() { echo "$(rd "$sys/$1/idVendor"):$(rd "$sys/$1/idProduct")"; }
+    # devices only: root hubs are usbN, interfaces carry a colon
+    ports=()
+    for d in "$sys"/*-*; do [[ $d == *:* ]] || ports+=("${d##*/}"); done
+    fail=0 seen=" "
+    while IFS=$'\t' read -r name want port speed; do
+      seen+="$port "
+      if [ "$(id "$port")" != "$want" ]; then
+        fail=1
+        at=$(for p in "${ports[@]}"; do if [ "$(id "$p")" = "$want" ]; then printf ' %s' "$p"; fi; done)
+        printf 'FAIL %-20s %s not on %s; %s\n' "$name" "$want" "$port" "$([ -n "$at" ] && echo "found on$at" || echo "not plugged in")"
+        continue
+      fi
+      got=$(rd "$sys/$port/speed")
+      if [ "$got" != "$speed" ]; then
+        fail=1
+        printf 'FAIL %-20s on %s at %s Mb/s, not %s; a slower port or cable\n' "$name" "$port" "$got" "$speed"
+        continue
+      fi
+      # detected = every interface has a driver bound
+      unbound=$(for i in "$sys/$port/$port":*; do [ -e "$i/driver" ] || printf ' %s' "${i##*/}"; done)
+      if [ -n "$unbound" ]; then
+        fail=1
+        printf 'FAIL %-20s on %s, but no driver for%s\n' "$name" "$port" "$unbound"
+        continue
+      fi
+      printf 'ok   %-20s on %s at %s Mb/s\n' "$name" "$port" "$got"
+    done < <(nix eval --json --file "{{ settings }}" usb | jq -r '.[] | [.name, .id, .port, (.speed | tostring)] | @tsv')
+    # hubs are just the way there
+    for p in "${ports[@]}"; do
+      [[ $seen == *" $p "* || $(rd "$sys/$p/bDeviceClass") == 09 ]] && continue
+      product=$(rd "$sys/$p/product")
+      printf 'new  %-20s on %s at %s Mb/s, %s\n' "${product:-?}" "$p" "$(rd "$sys/$p/speed")" "$(id "$p")"
+    done
+    exit "$fail"
+
 # Follow one unit, e.g. `just logs podman-pihole`
 logs unit:
     sudo journalctl -u "{{ unit }}" -f -n 100

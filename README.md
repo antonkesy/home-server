@@ -190,6 +190,7 @@ Nextcloud's `files_no_background_scan` stops cron from walking the array.
 | `logs <unit>`                      | follow one unit's journal                                            |
 | `disk`                             | free space on `/` and the array, the big state directories           |
 | `storage`                          | mirror health and whether the disks are spinning                     |
+| `check-usb`                        | every USB device in `settings.nix` on its port, at its speed         |
 | `fix-perms`                        | re-run the array-wide ownership and ACL repair                       |
 | `backup [dir]`                     | config and secrets archive, to `Backups/lab` by default              |
 | `restore [archive]`                | restore the newest archive, or the given one                         |

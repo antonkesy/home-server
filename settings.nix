@@ -212,6 +212,12 @@ in
     ];
   };
 
+  # `just check-usb`: what is plugged in where. port is the device's name under
+  # /sys/bus/usb/devices, <bus>-<port>[.<hub port>...]; speed is in Mb/s as
+  # that directory's `speed` holds it (480 is USB 2, 5000 and up USB 3).
+  # a device not listed here is printed by the check, with all three
+  usb = [ ];
+
   # `just backup`, `just restore`
   backup = {
     # lab's own archives, under the user-facing Backups
