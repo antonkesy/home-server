@@ -12,7 +12,7 @@ Tailscale, built from a flake.
 
 ```mermaid
 flowchart LR
-  router["Fritz!Box<br>192.168.178.1<br>static lease .29"] --- nic["LAN"]
+  router["Fritz!Box<br>192.168.178.1<br>static lease .29"] -. "Wi-Fi" .- nic["wlan<br>wpa_supplicant"]
 
   subgraph lab["lab - 192.168.178.29"]
     nic
@@ -125,7 +125,9 @@ just install
 `just install` switches the system and sets the password for user `ak`.
 Service passwords are generated on the switch (`gen-secrets`) and kept
 across rebuilds. On a new machine run `just hardware` first, or
-`just migrate` (hardware, install, restore). The two data disks have to be
+`just migrate` (hardware, install, restore). lab joins the LAN over Wi-Fi:
+`just wifi-psk` once, then move the static lease to the Wi-Fi card (**Notes**,
+*Wi-Fi*); until then a cable does the job. The two data disks have to be
 built into the mirror once by hand; see **Storage** below.
 
 ## Services
@@ -198,6 +200,7 @@ Nextcloud's `files_no_background_scan` stops cron from walking the array.
 | `youtube-list`                     | print the followed shows, their seasons and URLs                     |
 | `youtube-cookies <file>`           | give ytdl-sub a signed-in YouTube session                            |
 | `tailscale-up`                     | join the tailnet; re-run after a restore                             |
+| `wifi-psk`                         | store the Wi-Fi passphrase and reconnect                             |
 | `acme-token`                       | store the Hostinger API token, order the certificate                 |
 | `tmp-dns`                          | public DNS in `/etc/resolv.conf` until the next network change       |
 | `passwords`                        | print the generated service passwords                                |
@@ -305,6 +308,7 @@ Nextcloud login away. Inside:
   metadata and covers
 - Pi-hole: `pihole.toml`, `gravity.db`, `dnsmasq.d`
 - Tailscale: the node key, so a restored machine is the same node
+- the Wi-Fi passphrase
 - the Hostinger API token for the certificate (the certificate itself is
   ordered again)
 - MusicGrabber: its database (settings, watched playlists)
@@ -462,6 +466,19 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   and a video is fetched exactly once, so ytdl-sub waits until a video is
   `ytdlSub.delayDays` (3) old; a newer one is left for a later run. The
   `[SponsorBlock]` chapter titles are yt-dlp's.
+- **Wi-Fi** (`modules/wifi.nix`) is lab's link to the LAN. wpa_supplicant
+  joins `wifi.ssid` from `settings.nix` on whatever wireless card it finds,
+  and dhcpcd takes the lease as on a cable; a cable plugged in as well still
+  works and is preferred. The passphrase is not in the repo: `just wifi-psk`
+  writes it to `/var/lib/wifi/secrets`, readable only by root and the
+  `wpa_supplicant` group, and it is in the backup. Until then the file is
+  empty and the network is skipped. Once, in the Fritz!Box: Home Network >
+  Network, open lab's Wi-Fi entry and tick *Always assign this network device
+  the same IPv4 address* for `192.168.178.29` (`lan.address`), after
+  removing it from the old wired entry - everything on the LAN, Pi-hole's
+  DNS included, expects lab there. The card keeps its own MAC, so the lease
+  holds. `wifi.country` sets the regulatory domain, without which most of the
+  5 GHz channels stay off.
 - **Tailscale** (`modules/tailscale.nix`) makes lab reachable from outside.
   `just tailscale-up` once prints the login URL; the node key then lives in
   `/var/lib/tailscale` and is in the backup. `tailscale0` is a trusted
@@ -544,6 +561,11 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
 - **`ssh lab`: connection refused.** `lab` resolves to loopback. Check
   `dig +short lab @192.168.178.29`; `127.0.0.2` means Pi-hole serves a stale
   `/etc/hosts`: `sudo systemctl restart podman-pihole`.
+- **No network after a switch to Wi-Fi.** `just logs wpa_supplicant`:
+  `Waiting for wireless interfaces` means no card or no firmware;
+  `EXT PW` or `4-Way Handshake failed` means the passphrase - re-run
+  `just wifi-psk`. Associated but on the wrong address means the lease is
+  still on the wired entry in the Fritz!Box.
 - **No DNS on the server.** `just tmp-dns` writes a public resolver into
   `/etc/resolv.conf`.
 - **The array is degraded.** `just storage` names the missing member.

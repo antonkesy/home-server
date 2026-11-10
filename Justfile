@@ -39,7 +39,7 @@ rollback:
 
 # Unit status
 status:
-    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service audiobookshelf.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service tailscaled.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service bookorbit-setup.service soju.service soju-setup.service pihole-domains.service acme-renew-antonkesy.de.timer lab-backup.timer ytdl-sub-youtube.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
+    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service jellyfin.service audiobookshelf.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service tailscaled.service wpa_supplicant.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service bookorbit-setup.service soju.service soju-setup.service pihole-domains.service acme-renew-antonkesy.de.timer lab-backup.timer ytdl-sub-youtube.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
 
 # Join the tailnet (opens a login URL); re-run after a restore
 tailscale-up:
@@ -118,6 +118,17 @@ youtube-list:
 youtube-cookies file:
     sudo install -o ytdl-sub -g ytdl-sub -m 0600 "{{ file }}" /var/lib/ytdl-sub/youtube/cookies.txt
     @echo "installed; delete {{ file }}, it is a signed-in session"
+
+# Store the Wi-Fi passphrase for settings.nix's wifi.ssid, then reconnect
+wifi-psk:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    read -rsp "Wi-Fi passphrase: " psk; echo
+    # 8 to 63 characters, or the 64-hex-digit key itself
+    (( ${#psk} >= 8 && ${#psk} <= 64 )) || { echo "a WPA passphrase is 8 to 63 characters" >&2; exit 1; }
+    printf 'psk=%s\n' "$psk" | sudo install -D -m 0640 -g wpa_supplicant /dev/stdin /var/lib/wifi/secrets
+    sudo systemctl restart wpa_supplicant.service
+    echo "stored; \`ip -br addr\` shows the lease once it is associated"
 
 # Store the Hostinger API token for the *.antonkesy.de certificate, then order it
 acme-token:

@@ -7,6 +7,7 @@
     ./modules/storage.nix
     ./modules/nix.nix
     ./modules/networking.nix
+    ./modules/wifi.nix
     ./modules/packages.nix
     ./modules/ssh.nix
     ./modules/tailscale.nix

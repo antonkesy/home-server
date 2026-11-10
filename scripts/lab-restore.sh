@@ -65,6 +65,11 @@ done
 chown root:root "${secrets[@]}" /etc/ssh/ssh_host_*_key*
 chmod 0600 "${secrets[@]}" /etc/ssh/ssh_host_*_key
 chmod 0644 /etc/ssh/ssh_host_*_key.pub
+# read by the unprivileged daemon (modules/wifi.nix)
+if [ -e /var/lib/wifi/secrets ]; then
+  chown root:wpa_supplicant /var/lib/wifi/secrets
+  chmod 0640 /var/lib/wifi/secrets
+fi
 
 pg() { runuser -u postgres -- "$@"; }
 pg dropdb -h /run/postgresql --force --if-exists nextcloud
@@ -103,6 +108,8 @@ systemctl start nextcloud-cron.timer \
 systemctl start --no-block nextcloud-media-scan.service
 systemctl start immich-server.service immich-machine-learning.service tailscaled.service
 systemctl start --no-block immich-setup.service bookorbit-setup.service soju-setup.service
+# the passphrase is read on connect; a running daemon may have given up on it
+systemctl try-restart --no-block wpa_supplicant.service
 # skipped at boot while the token was missing
 systemctl start --no-block 'acme-order-renew-*.service'
 

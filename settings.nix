@@ -22,11 +22,19 @@ in
   ocrLanguages = "deu+eng";
 
   lan = {
-    # static DHCP lease on the Fritz!Box
+    # static DHCP lease on the Fritz!Box, held by the wi-fi card's MAC
     address = "192.168.178.29";
     subnet = "192.168.178.0/24";
     router = "192.168.178.1";
     domain = "fritz.box";
+  };
+
+  # modules/wifi.nix: lab's link to the LAN. the passphrase is not here but
+  # in /var/lib/wifi/secrets, from `just wifi-psk`
+  wifi = {
+    ssid = "FRITZ!Box 7590 XX";
+    # regulatory domain, ISO 3166 code
+    country = "DE";
   };
 
   # modules/proxy.nix: every web ui at https://<subdomain>.<domain>, one
