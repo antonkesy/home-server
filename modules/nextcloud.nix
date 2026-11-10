@@ -130,7 +130,7 @@ in
   services.nextcloud = {
     enable = true;
     # one major version per upgrade
-    package = pkgs.nextcloud34;
+    package = pkgs.nextcloud35;
     # the vhost; the certificate is modules/proxy.nix's wildcard
     hostName = fqdn;
     https = true;
@@ -190,13 +190,13 @@ in
 
     # keep in step with `package` above
     extraApps = {
-      inherit (pkgs.nextcloud34Packages.apps) previewgenerator;
+      inherit (pkgs.nextcloud35Packages.apps) previewgenerator;
     };
     # extraApps on its own switches the app store off; the apps installed by
     # hand are still wanted
     appstoreEnable = true;
 
-    # upstream's sizes are below what nextcloud 34 needs; an overflowing opcache recompiles per request
+    # upstream's sizes are below what nextcloud 35 needs; an overflowing opcache recompiles per request
     phpOptions = {
       # upstream: maxUploadSize, i.e. 4G per worker on a swapless box. uploads are
       # chunked and streamed by nginx, so one preview job is the real cap

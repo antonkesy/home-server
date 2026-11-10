@@ -374,7 +374,7 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   `extraApp`, so Nix owns its directory and `nextcloud-setup` re-enables it
   on every start. Never install or update it from the app store: a newer copy
   in `store-apps` shadows the pinned one. Upgrade one major
-  version at a time (`nextcloud35` only once 34 has migrated).
+  version at a time (`nextcloud36` only once 35 has migrated).
 - **Nextcloud previews.** Built ahead of time rather than when the browser asks,
   which is what made a photo folder crawl. Pre-generating the whole array filled
   the SSD once, so it is scoped to `nextcloud.previewDirs` in `settings.nix`;
