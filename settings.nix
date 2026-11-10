@@ -216,7 +216,40 @@ in
   # /sys/bus/usb/devices, <bus>-<port>[.<hub port>...]; speed is in Mb/s as
   # that directory's `speed` holds it (480 is USB 2, 5000 and up USB 3).
   # a device not listed here is printed by the check, with all three
-  usb = [ ];
+  usb = [
+    # the array's enclosure: a hub on 2-2 with one bridge per disk behind it
+    {
+      name = "storage bridge 1";
+      id = "174c:235c";
+      port = "2-2.1";
+      speed = 10000;
+    }
+    {
+      name = "storage bridge 2";
+      id = "174c:235c";
+      port = "2-2.2";
+      speed = 10000;
+    }
+    {
+      name = "zigbee dongle";
+      id = "10c4:ea60";
+      port = "3-1";
+      speed = 12;
+    }
+    {
+      name = "bluetooth dongle";
+      id = "2357:0604";
+      port = "3-7";
+      speed = 12;
+    }
+    # the mainboard's own, on an internal header
+    {
+      name = "onboard bluetooth";
+      id = "8087:0033";
+      port = "3-10";
+      speed = 12;
+    }
+  ];
 
   # `just backup`, `just restore`
   backup = {
