@@ -69,6 +69,20 @@ storage:
     # standby = spun down, active/idle = spinning
     sudo hdparm -C /dev/sda /dev/sdb || true
 
+# Rebuild the indexes of every database whose collation glibc has since changed
+pg-collation:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    psql() { sudo -u postgres psql -h /run/postgresql -v ON_ERROR_STOP=1 -qAt "$@"; }
+    dbs=$(psql -d postgres -c "SELECT datname FROM pg_database WHERE datallowconn AND datcollversion IS DISTINCT FROM pg_database_collation_actual_version(oid)")
+    [ -n "$dbs" ] || { echo "every database matches glibc's collation"; exit 0; }
+    for db in $dbs; do
+      echo "$db: reindexing"
+      # a text index sorted by the old rules can miss rows or let a duplicate past a unique one
+      psql -d "$db" -c "REINDEX DATABASE"
+      psql -d "$db" -c "ALTER DATABASE \"$db\" REFRESH COLLATION VERSION"
+    done
+
 # Every USB device in settings.nix's usb at its port, at its speed, claimed by a driver
 check-usb:
     #!/usr/bin/env bash
