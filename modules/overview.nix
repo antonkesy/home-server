@@ -278,6 +278,18 @@ let
     '';
   };
 
+  # /stats, the system panel's snapshot; its own script, like lab-backup's
+  stats = pkgs.writeShellApplication {
+    name = "lab-stats";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.util-linux
+      pkgs.jq
+    ];
+    runtimeEnv.LAB_STORAGE = settings.storage.root;
+    text = builtins.readFile ../scripts/lab-stats.sh;
+  };
+
   # one connection per request (Accept=yes), the path is the check
   statusSocket = "/run/lab-status.sock";
   status = pkgs.writeShellApplication {
@@ -305,6 +317,11 @@ let
       )}
 
       key=''${path#/}
+      if [ "$key" = stats ]; then
+        out=$(${lib.getExe stats})
+        printf 'HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nCache-Control: no-store\r\n\r\n%s\n' "$out"
+        exit 0
+      fi
       if ! declare -F "check_$key" >/dev/null; then
         code="404 Not Found"
         out="no such check"
@@ -403,12 +420,14 @@ let
       :root {
         --bg: #f4f5f7; --card: #fff; --fg: #1d2129; --muted: #626a77;
         --line: #e2e5ea; --up: #2f9e5b; --down: #c9433b;
+        --fill: #2a78d6; --track: #cde2fb; --warn: #fab219; --crit: #d03b3b;
         color-scheme: light dark;
       }
       @media (prefers-color-scheme: dark) {
         :root {
           --bg: #15171b; --card: #1e2126; --fg: #e8eaee; --muted: #9aa1ad;
           --line: #2c3037; --up: #4cc27c; --down: #e5615a;
+          --fill: #3987e5; --track: #0d366b;
         }
       }
       * { box-sizing: border-box; }
@@ -416,7 +435,42 @@ let
         margin: 0; background: var(--bg); color: var(--fg);
         font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
       }
-      main { max-width: 980px; margin: 0 auto; padding: 40px 16px 56px; }
+      main { max-width: 1320px; margin: 0 auto; padding: 40px 16px 56px; }
+      .layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 32px; align-items: start; }
+      .layout > * > :first-child h2, .layout > * > h2:first-child { margin-top: 0; }
+      @media (max-width: 880px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+      .panel {
+        background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+        display: flex; flex-direction: column; gap: 14px;
+      }
+      .state { text-transform: none; letter-spacing: 0; font-weight: 400; }
+      .meter .row { display: flex; align-items: baseline; gap: 8px; }
+      .meter .label { font-weight: 600; }
+      .meter .value { margin-left: auto; font-variant-numeric: tabular-nums; }
+      .flag { font-size: 12px; color: var(--muted); }
+      .flag.warn::first-letter { color: var(--warn); }
+      .flag.crit::first-letter { color: var(--crit); }
+      .track { display: block; height: 8px; margin-top: 6px; border-radius: 4px; background: var(--track); overflow: hidden; }
+      .fill { display: block; height: 100%; width: 0; border-radius: 4px; background: var(--fill); transition: width .4s; }
+      .fill.warn { background: var(--warn); }
+      .fill.crit { background: var(--crit); }
+      .sub { margin-top: 4px; color: var(--muted); font-size: 12px; }
+      dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 13px; }
+      dt { color: var(--muted); }
+      dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; white-space: pre; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th { text-align: left; font-weight: 600; color: var(--muted); padding: 0 0 6px; }
+      th button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+      th button:hover { color: var(--fg); }
+      td { padding: 5px 0; border-top: 1px solid var(--line); vertical-align: top; }
+      td.unit { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px; }
+      .num { text-align: right; width: 76px; font-variant-numeric: tabular-nums; }
+      .bar { display: block; height: 3px; margin-top: 3px; margin-left: auto; width: 64px; border-radius: 2px; background: var(--line); }
+      .bar span { display: block; height: 100%; margin-left: auto; border-radius: 2px; background: var(--fill); }
+      .more {
+        align-self: flex-start; font: inherit; font-size: 13px; color: var(--muted);
+        background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline dotted;
+      }
       header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 28px; }
       h1 { margin: 0; font-size: 28px; letter-spacing: -0.01em; }
       header span { color: var(--muted); }
@@ -424,7 +478,7 @@ let
         margin: 28px 0 12px; font-size: 13px; font-weight: 600;
         text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
       }
-      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
       .card {
         position: relative; display: flex; gap: 14px; align-items: flex-start; padding: 16px;
         background: var(--card); border: 1px solid var(--line); border-radius: 12px;
@@ -457,8 +511,52 @@ let
     <body>
     <main>
       <header><h1>${settings.hostName}</h1><span>${settings.lan.address}</span></header>
-      ${lib.concatMapStrings group groups}
+      <div class="layout">
+        <aside class="monitor" aria-label="System monitor">
+          <h2>Resources <span class="state">measuring…</span></h2>
+          <div class="panel">
+            ${lib.concatMapStrings
+              (key: ''
+                <div class="meter" data-m="${key}" hidden>
+                  <div class="row"><span class="label"></span><span class="flag"></span><span class="value"></span></div>
+                  <div class="track" role="meter" aria-valuemin="0" aria-valuemax="100"><span class="fill"></span></div>
+                  <div class="sub"></div>
+                </div>
+              '')
+              [
+                "cpu"
+                "mem"
+                "swap"
+                "disk0"
+                "disk1"
+              ]
+            }
+            <dl>
+              <dt>Network</dt><dd class="net">–</dd>
+              <dt>Up</dt><dd class="uptime">–</dd>
+            </dl>
+          </div>
+          <h2>Who uses what</h2>
+          <div class="panel">
+            <table>
+              <thead><tr>
+                <th scope="col">Service</th>
+                <th scope="col" class="num" title="share of all cores, over the last second"><button type="button" data-sort="cpu" data-label="CPU">CPU</button></th>
+                <th scope="col" class="num" title="without the page cache"><button type="button" data-sort="mem" data-label="Memory">Memory</button></th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+            <button type="button" class="more" hidden></button>
+          </div>
+        </aside>
+        <div class="services">
+          ${lib.concatMapStrings group groups}
+        </div>
+      </div>
     </main>
+    <script>
+      ${builtins.readFile ./overview-monitor.js}
+    </script>
     <script>
       // /up/<key> is proxied to the service on this same vhost; a 502 is down
       document.querySelectorAll(".card").forEach(function (card) {
@@ -522,25 +620,35 @@ in
     useACMEHost = domain;
     forceSSL = true;
     root = page;
-    locations = lib.listToAttrs (
-      map (
-        key:
-        lib.nameValuePair "= /up/${key}" {
-          proxyPass = upstream key;
-          # the recommended Host is this vhost's, which would ask the overview
-          # itself instead of nextcloud
-          recommendedProxySettings = key != "nextcloud";
+    locations =
+      lib.listToAttrs (
+        map (
+          key:
+          lib.nameValuePair "= /up/${key}" {
+            proxyPass = upstream key;
+            # the recommended Host is this vhost's, which would ask the overview
+            # itself instead of nextcloud
+            recommendedProxySettings = key != "nextcloud";
+            extraConfig = ''
+              proxy_connect_timeout 3s;
+              proxy_read_timeout 10s;
+            ''
+            + lib.optionalString (key == "nextcloud") ''
+              proxy_set_header Host ${fqdn key};
+              proxy_ssl_server_name on;
+              proxy_ssl_name ${fqdn key};
+            '';
+          }
+        ) listed
+      )
+      // {
+        "= /stats" = {
+          proxyPass = "http://unix:${statusSocket}:/stats";
           extraConfig = ''
             proxy_connect_timeout 3s;
             proxy_read_timeout 10s;
-          ''
-          + lib.optionalString (key == "nextcloud") ''
-            proxy_set_header Host ${fqdn key};
-            proxy_ssl_server_name on;
-            proxy_ssl_name ${fqdn key};
           '';
-        }
-      ) listed
-    );
+        };
+      };
   };
 }

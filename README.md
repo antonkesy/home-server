@@ -155,7 +155,10 @@ all of them, by name and by port, with a dot for whether each one answers;
 and the build fails if a subdomain has no card. What has no page of its own -
 Zigbee, Bluetooth, Tailscale, the mirror, the backup, the certificate - gets
 a card too, its dot from a check on lab (`lab-status.socket`) whose answer is
-printed on the card; none of them wakes the disks. The names resolve on the LAN
+printed on the card; none of them wakes the disks. On the left, a resources
+panel: CPU, memory, swap, disks and network, and which service takes how much
+CPU and memory, measured live every five seconds by `scripts/lab-stats.sh`
+from the cgroup tree; containers are counted with their `podman-*` service. The names resolve on the LAN
 only, through Pi-hole (**Notes**, *Reverse proxy*). The ports keep working
 alongside them (`settings.nix`), for a client that does not use Pi-hole.
 
