@@ -19,8 +19,8 @@ mkdir -p "$dest" || { echo "$dest unreachable" >&2; exit 1; }
 
 stage=$(mktemp -d /var/tmp/lab-backup.XXXXXX)
 name="$host-$(date +%Y-%m-%d-%H%M).tar.zst"
-# sqlite holders, down only for the copy
-stopped=(jellyfin.service audiobookshelf.service paperless-scheduler.service paperless-task-queue.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service soju.service)
+# sqlite holders and matter-server's live json, down only for the copy
+stopped=(matter-server.service jellyfin.service audiobookshelf.service paperless-scheduler.service paperless-task-queue.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service soju.service)
 restarted=("${stopped[@]}")
 down=0
 cleanup() {
@@ -55,6 +55,7 @@ for p in etc/ssh/ssh_host_*_key etc/ssh/ssh_host_*_key.pub \
   var/lib/bookorbit/admin-pass var/lib/bookorbit/bookorbit.env var/lib/bookorbit/data \
   var/lib/acme/hostinger.env var/lib/wifi/secrets \
   var/lib/hass var/lib/jellyfin var/lib/audiobookshelf var/lib/pihole var/lib/musicgrabber var/lib/tailscale var/lib/soju \
+  var/lib/private/matter-server \
   "${LAB_YOUTUBE_SUBSCRIPTIONS#/}"; do
   [ -e "$p" ] && include+=("$p")
 done

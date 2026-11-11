@@ -64,6 +64,7 @@ flowchart TD
     mgb["musicgrabber in podman<br>:38274"]
     bob["bookorbit in podman<br>:3000"]
     soj["soju :6697 ircs<br>irc.antonkesy.de"]
+    mts["matter-server<br>:5353, :5540/udp<br>websocket :5580 local only"]
   end
 
   yts["ytdl-sub-youtube.timer<br>02:30"]
@@ -94,6 +95,8 @@ flowchart TD
   bob --> med
   ph --> st
   has --> st
+  has --> mts
+  mts --> dev["Matter devices<br>on the LAN"]
   ncb --> pg & rd
   ncb --> med & pho & doc & arc & bak
   jfb --> med
@@ -305,6 +308,7 @@ Nextcloud login away. Inside:
   the secrets, covers
 - Paperless: database and secret key (the search index is rebuilt on start)
 - Home Assistant: `.storage` (integrations, auth, devices)
+- Matter: the fabric, i.e. every paired device (without it, all of them pair again)
 - Jellyfin: config, library database, plugins
 - Audiobookshelf: config and database (users, progress, libraries), item
   metadata and covers
@@ -322,7 +326,7 @@ thumbnails, caches, logs, Home Assistant history. The mirror is what covers thos
 one disk dying - the archive now sits on the same machine as the state it
 backs up, so fire, theft or a dead PSU takes both. `just backup /run/media/...`
 onto an external disk now and then is the only thing that does not.
-Jellyfin, Audiobookshelf, Paperless and Pi-hole are stopped for the duration of the tar, so
+Jellyfin, Audiobookshelf, Paperless, Pi-hole and the Matter server are stopped for the duration of the tar, so
 LAN DNS is briefly gone; the copy is compared against the staged archive
 after a sync.
 
@@ -481,6 +485,14 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   DNS included, expects lab there. The card keeps its own MAC, so the lease
   holds. `wifi.country` sets the regulatory domain, without which most of the
   5 GHz channels stay off.
+- **Matter** (`modules/matter.nix`). `matter-server` is the controller; Home
+  Assistant reaches it at `ws://localhost:5580/ws`, which has no login and so
+  is not open in the firewall. Once, in Home Assistant: *Settings > Devices &
+  services > Add integration > Matter*, keep the suggested URL. Pair devices
+  with *Add device* in the Companion app (not the browser): it uses the
+  phone's Bluetooth to commission them onto the Wi-Fi. Matter runs
+  over IPv6 and finds devices by mDNS, hence UDP 5353 and 5540. Wi-Fi devices
+  only: a Thread device also needs a Thread border router on the LAN.
 - **Tailscale** (`modules/tailscale.nix`) makes lab reachable from outside.
   `just tailscale-up` once prints the login URL; the node key then lives in
   `/var/lib/tailscale` and is in the backup. `tailscale0` is a trusted

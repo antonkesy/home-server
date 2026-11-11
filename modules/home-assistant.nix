@@ -48,6 +48,14 @@ in
 {
   services.home-assistant = {
     enable = true;
+    # upstream's defaults, plus matter (modules/matter.nix). an integration
+    # added in the ui only loads when its component is built in
+    extraComponents = [
+      "default_config"
+      "met"
+      "esphome"
+      "matter"
+    ];
     config = {
       default_config = { };
     };

@@ -30,7 +30,7 @@ tar --zstd -xf "$archive" -C "$stage" --occurrence=1 nextcloud.pgdump
 tar --zstd -xf "$archive" -C "$stage" --occurrence=1 immich.pgdump 2>/dev/null || true
 tar --zstd -xf "$archive" -C "$stage" --occurrence=1 bookorbit.pgdump 2>/dev/null || true
 
-systemctl stop home-assistant.service jellyfin.service audiobookshelf.service \
+systemctl stop home-assistant.service matter-server.service jellyfin.service audiobookshelf.service \
   paperless-scheduler.service paperless-task-queue.service podman-pihole.service \
   podman-musicgrabber.service podman-bookorbit.service soju.service nginx.service phpfpm-nextcloud.service nextcloud-cron.timer nextcloud-media-watch.service \
   immich-server.service immich-machine-learning.service tailscaled.service
@@ -103,7 +103,7 @@ nextcloud-occ files:scan --all --home-only
 
 systemctl start nextcloud-cron.timer \
   nextcloud-external-storage.service nextcloud-media-watch.service \
-  home-assistant.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service soju.service \
+  matter-server.service home-assistant.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service soju.service \
   jellyfin.service audiobookshelf.service paperless-scheduler.service nginx.service phpfpm-nextcloud.service
 systemctl start --no-block nextcloud-media-scan.service
 systemctl start immich-server.service immich-machine-learning.service tailscaled.service
