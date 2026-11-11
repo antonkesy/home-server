@@ -17,6 +17,14 @@ in
     extraConfig = "country=${wifi.country}";
   };
 
+  # power save is the kernel's default for a wireless card: it dozes between
+  # beacons, which put ~100 ms on every reply to lab against ~18 ms to the
+  # router, and irc clients timed out on their pings. a server is never idle
+  # enough for that to pay off
+  services.udev.extraRules = ''
+    ACTION=="add", SUBSYSTEM=="net", ENV{DEVTYPE}=="wlan", RUN+="${pkgs.iw}/bin/iw dev $name set power_save off"
+  '';
+
   # the hardened unit bind-mounts the file and will not start without it. an
   # empty one until `just wifi-psk`: the network is skipped, the daemon stays
   # up. readable by its group, since the daemon runs as wpa_supplicant. here
