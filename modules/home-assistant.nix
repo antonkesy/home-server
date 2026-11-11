@@ -67,6 +67,9 @@ in
     ];
     config = {
       default_config = { };
+      # celsius, and km, kg, l with it; read on every start, over what the ui
+      # set. a temperature_unit of its own is no longer read
+      homeassistant.unit_system = "metric";
     };
   };
 
