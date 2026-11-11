@@ -42,8 +42,9 @@ in
   # only resolve on the LAN, through pi-hole; the domain's public records are
   # left alone
   domain = "antonkesy.de";
-  # keyed like `ports`; nextcloud is served by nginx itself, and
-  # overview is the start page linking all the others (modules/overview.nix)
+  # keyed like `ports`; nextcloud and gamja (the irc web client,
+  # modules/soju.nix) are served by nginx itself, and overview is the start
+  # page linking all the others (modules/overview.nix)
   subdomains = {
     overview = "lab";
     homeAssistant = "home";
@@ -55,6 +56,7 @@ in
     musicGrabber = "music";
     bookOrbit = "books";
     pihole = "pihole";
+    gamja = "chat";
   };
 
   # pi-hole upstreams; also the host's own resolvers (modules/pihole.nix)
@@ -201,13 +203,18 @@ in
   # the login is `user`, the password /var/lib/soju/admin-pass
   soju = {
     subdomain = "irc";
-    # created on the first start only; afterwards BouncerServ owns them. the
-    # nickserv login comes from `just libera-pw`, which `just install` asks
+    # created when missing; afterwards BouncerServ owns them. the nickserv
+    # login comes from `just libera-pw`, which `just install` asks
     networks = [
       {
         name = "libera";
         addr = "ircs://irc.libera.chat:6697";
         nick = "antonkesy";
+        # joined by soju, so every client, gamja included, is in them
+        channels = [
+          "#handbrake"
+          "#handbrake-dev"
+        ];
       }
     ];
   };

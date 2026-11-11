@@ -97,6 +97,12 @@ let
       title = "Chat";
       services = [
         {
+          key = "gamja";
+          name = "gamja";
+          about = "IRC in the browser, through soju";
+          color = "#5a6fb0";
+        }
+        {
           key = "soju";
           name = "soju";
           about = "IRC bouncer, stays on Libera";
@@ -122,14 +128,15 @@ let
   # what /up/<key> asks; anything below 500 counts as up. nextcloud's port
   # is only nginx's copy of its vhost, so the vhost itself is asked, over the
   # name /etc/hosts gives it. matter's port is local only, so not in ports.
-  # soju answers anything with a 404, which is up
+  # soju answers anything with a 404, which is up; gamja is static files
+  # beside soju's websocket, so soju is what can be down
   upstream =
     key:
     if key == "nextcloud" then
       "https://${fqdn key}/status.php"
     else if key == "matter" then
       "http://127.0.0.1:${toString config.services.matter-server.port}/"
-    else if key == "soju" then
+    else if key == "soju" || key == "gamja" then
       "http://unix:${sojuSocket}:/"
     else
       "http://127.0.0.1:${toString ports.${key}}/";

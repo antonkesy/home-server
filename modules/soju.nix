@@ -10,6 +10,7 @@ let
   scfg = settings.soju;
   inherit (settings) domain;
   host = "${scfg.subdomain}.${domain}";
+  webHost = "${settings.subdomains.gamja}.${domain}";
   stateDir = "/var/lib/soju";
   adminPass = "${stateDir}/admin-pass";
   # the module's RuntimeDirectory, where its admin socket is too
@@ -29,8 +30,8 @@ in
     hostName = host;
     listen = [
       "ircs://:${toString settings.ports.soju}"
-      # for the start page's dot only (modules/overview.nix): plain http that
-      # nginx can ask, where the ircs port speaks no http
+      # plain http that nginx can reach, where the ircs port speaks no http:
+      # gamja's websocket, and the start page's dot (modules/overview.nix)
       "http+unix://${httpSocket}"
     ];
     tlsCertificate = "${certDir}/fullchain.pem";
@@ -63,11 +64,39 @@ in
   # soju re-reads the certificate on SIGHUP, which is its reload
   security.acme.certs.${domain}.reloadServices = [ "soju.service" ];
 
-  # the bouncer account and the libera network, over the admin socket. both
-  # are only created when missing; a password or nick changed through
-  # BouncerServ later is not put back
+  # gamja, the web client: static files, and its websocket to soju. it logs in
+  # like any other client, as `user` with admin-pass
+  services.nginx.virtualHosts.${webHost} = {
+    useACMEHost = domain;
+    forceSSL = true;
+    root = pkgs.gamja;
+    # served beside the package rather than baked into it, which would
+    # rebuild gamja for every change
+    locations."= /config.json".alias = pkgs.writeText "gamja-config.json" (
+      builtins.toJSON {
+        server = {
+          auth = "mandatory";
+          # a ping a minute keeps the websocket inside nginx's read timeout
+          ping = 60;
+        };
+      }
+    );
+    locations."= /socket" = {
+      proxyPass = "http://unix:${httpSocket}:/socket";
+      proxyWebsockets = true;
+      extraConfig = ''
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+      '';
+    };
+  };
+
+  # the bouncer account, its networks and their channels, over the admin
+  # socket. all are only created when missing; a password or nick changed
+  # through BouncerServ later is not put back, a channel left is not rejoined
+  # until the next run
   systemd.services.soju-setup = {
-    description = "create the soju user and its networks";
+    description = "create the soju user, its networks and their channels";
     wantedBy = [ "multi-user.target" ];
     requires = [ "soju.service" ];
     after = [ "soju.service" ];
@@ -100,6 +129,9 @@ in
       ${lib.concatMapStrings (n: ''
         try ${sojuctl} user run ${lib.escapeShellArg settings.user} network create \
           -name ${lib.escapeShellArg n.name} -addr ${lib.escapeShellArg n.addr} -nick ${lib.escapeShellArg n.nick}
+        ${lib.concatMapStrings (c: ''
+          try ${sojuctl} user run ${lib.escapeShellArg settings.user} channel create ${lib.escapeShellArg "${c}/${n.name}"}
+        '') (n.channels or [ ])}
       '') scfg.networks}
     '';
   };

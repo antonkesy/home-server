@@ -12,12 +12,13 @@ let
   # HOSTINGER_API_TOKEN=..., from `just acme-token`; hPanel > Account > API
   tokenFile = "/var/lib/acme/hostinger.env";
 
-  # every subdomain but nextcloud and the overview, which are their own nginx
-  # vhosts (modules/nextcloud.nix, modules/overview.nix) and only need the
-  # certificate
+  # every subdomain but nextcloud, the overview and gamja, which are their own
+  # nginx vhosts (modules/nextcloud.nix, modules/overview.nix, modules/soju.nix)
+  # and only need the certificate
   proxied = lib.removeAttrs subdomains [
     "nextcloud"
     "overview"
+    "gamja"
   ];
   unknown = lib.subtractLists (lib.attrNames ports) (lib.attrNames proxied);
 

@@ -87,7 +87,7 @@ flowchart TD
   soj --> libera["irc.libera.chat"]
   remote["tailnet peer"] --> ts --> client
   client --> ngx
-  ngx --> ncb & has & jfb & abs & plb & imb & mgb & bob & ph
+  ngx --> ncb & has & jfb & abs & plb & imb & mgb & bob & ph & soj
   client -.-> jfb & abs & plb & imb & mgb & bob
   mgb --> med
   yts --> med
@@ -145,7 +145,7 @@ built into the mirror once by hand; see **Storage** below.
 | Immich         | [https://photos.antonkesy.de](https://photos.antonkesy.de)         | [http://lab:2283](http://lab:2283)             | `/var/lib/immich/admin-pass` (user `adminEmail`)    | [Immich](https://play.google.com/store/apps/details?id=app.alextran.immich) (Android, backs up the camera roll); web on desktop                                                                                                                       |
 | MusicGrabber   | [https://music.antonkesy.de](https://music.antonkesy.de)           | [http://lab:38274](http://lab:38274)           | none                                                | web only                                                                                                                                                                                                                                              |
 | BookOrbit      | [https://books.antonkesy.de](https://books.antonkesy.de)           | [http://lab:3000](http://lab:3000)             | `/var/lib/bookorbit/admin-pass` (user `adminEmail`) | web; a Kobo syncs against `APP_URL`                                                                                                                                                                                                                   |
-| soju           | `ircs://irc.antonkesy.de:6697`                                     | -                                              | `/var/lib/soju/admin-pass` (user `ak`)              | [Goguma](https://play.google.com/store/apps/details?id=fr.emersion.goguma) (Android); [Halloy](https://halloy.chat) or any IRC client (desktop)                                                                                                       |
+| soju           | `ircs://irc.antonkesy.de:6697`                                     | -                                              | `/var/lib/soju/admin-pass` (user `ak`)              | [gamja](https://chat.antonkesy.de) (browser); [Goguma](https://play.google.com/store/apps/details?id=fr.emersion.goguma) (Android); [Halloy](https://halloy.chat) or any IRC client (desktop)                                                         |
 | Tailscale      | -                                                                  | -                                              | `just tailscale-up` once, logs in via browser       | [Tailscale](https://play.google.com/store/apps/details?id=com.tailscale.ipn) (Android); [desktop clients](https://tailscale.com/download)                                                                                                             |
 | Pi-hole        | [https://pihole.antonkesy.de](https://pihole.antonkesy.de)         | [http://lab:4000/admin](http://lab:4000/admin) | `/var/lib/pihole/pihole.env`                        | web only                                                                                                                                                                                                                                              |
 
@@ -310,6 +310,9 @@ rejects it until `just acme-token` has run.
 | Password | the soju line of `just passwords` on lab  |
 | Nickname | anything; soju shows Libera's `antonkesy` |
 
+- **gamja** (any browser): [https://chat.antonkesy.de](https://chat.antonkesy.de),
+  served by lab itself; log in as `ak` with the password. Nothing to
+  install, and it is the same session as every other client.
 - **Goguma** (Android): server `irc.antonkesy.de`, nickname `ak`, the
   password. It lists Libera as its own network.
 - **Halloy** (desktop), in its `config.toml`:
@@ -332,6 +335,8 @@ rejects it until `just acme-token` has run.
   instead, one connection per network, and as `ak/libera@<device>` gets
   its own backlog per device.
 
+soju joins the channels listed under `soju.networks` in `settings.nix`
+(`#handbrake`, `#handbrake-dev`) itself, so every client finds them there.
 `/join #channel` from any client and soju stays in it, also while every
 client is closed; the next connect replays what was said. `/part` leaves for
 good, `/part #channel detach` keeps it joined but out of the client's list.
