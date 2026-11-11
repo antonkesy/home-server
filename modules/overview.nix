@@ -93,28 +93,52 @@ let
         }
       ];
     }
+    {
+      title = "Chat";
+      services = [
+        {
+          key = "soju";
+          name = "soju";
+          about = "IRC bouncer, stays on Libera";
+          color = "#8a5a44";
+          # irc, not a page (modules/soju.nix); the link opens an irc client
+          href = "ircs://${sojuHost}:${toString ports.soju}";
+          where = "${sojuHost}:${toString ports.soju}";
+        }
+      ];
+    }
   ];
+
+  sojuHost = config.services.soju.hostName;
+  # the ircs port speaks no http, so the dot asks soju's local http socket
+  sojuSocket = lib.removePrefix "http+unix://" (
+    lib.findFirst (lib.hasPrefix "http+unix://") (throw "soju has no http+unix listener")
+      config.services.soju.listen
+  );
 
   listed = lib.concatMap (g: map (s: s.key) g.services) groups;
   missing = lib.subtractLists (listed ++ [ "overview" ]) (lib.attrNames subdomains);
 
   # what /up/<key> asks; anything below 500 counts as up. nextcloud's port
   # is only nginx's copy of its vhost, so the vhost itself is asked, over the
-  # name /etc/hosts gives it. matter's port is local only, so not in ports
+  # name /etc/hosts gives it. matter's port is local only, so not in ports.
+  # soju answers anything with a 404, which is up
   upstream =
     key:
     if key == "nextcloud" then
       "https://${fqdn key}/status.php"
     else if key == "matter" then
       "http://127.0.0.1:${toString config.services.matter-server.port}/"
+    else if key == "soju" then
+      "http://unix:${sojuSocket}:/"
     else
       "http://127.0.0.1:${toString ports.${key}}/";
 
   # the port each service still answers on directly, as http://lab:<port>;
-  # pi-hole's UI is under /admin
+  # pi-hole's UI is under /admin; soju's port is ircs, already the card's link
   direct =
     key:
-    lib.optionalString (ports ? ${key}) (
+    lib.optionalString (ports ? ${key} && key != "soju") (
       "${settings.hostName}:${toString ports.${key}}" + lib.optionalString (key == "pihole") "/admin"
     );
 

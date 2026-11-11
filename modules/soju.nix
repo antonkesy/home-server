@@ -12,6 +12,8 @@ let
   host = "${scfg.subdomain}.${domain}";
   stateDir = "/var/lib/soju";
   adminPass = "${stateDir}/admin-pass";
+  # the module's RuntimeDirectory, where its admin socket is too
+  httpSocket = "/run/soju/http.sock";
   # modules/proxy.nix's wildcard; until the token is there, its self-signed
   # stand-in at the same path
   certDir = config.security.acme.certs.${domain}.directory;
@@ -25,7 +27,12 @@ in
   services.soju = {
     enable = true;
     hostName = host;
-    listen = [ "ircs://:${toString settings.ports.soju}" ];
+    listen = [
+      "ircs://:${toString settings.ports.soju}"
+      # for the start page's dot only (modules/overview.nix): plain http that
+      # nginx can ask, where the ircs port speaks no http
+      "http+unix://${httpSocket}"
+    ];
     tlsCertificate = "${certDir}/fullchain.pem";
     tlsCertificateKey = "${certDir}/key.pem";
   };
@@ -39,6 +46,9 @@ in
     extraGroups = [ config.services.nginx.group ];
   };
   users.groups.soju = { };
+  # soju makes its http socket 0775, so the group is what lets nginx in. a
+  # worker picks the group up on its next start, i.e. the reboot an update is
+  users.users.${config.services.nginx.user}.extraGroups = [ "soju" ];
 
   systemd.services.soju = {
     wants = [ "acme-${domain}.service" ];
