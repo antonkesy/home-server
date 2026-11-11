@@ -152,7 +152,10 @@ built into the mirror once by hand; see **Storage** below.
 [https://lab.antonkesy.de](https://lab.antonkesy.de) is a start page linking
 all of them, by name and by port, with a dot for whether each one answers;
 `http://lab` lands there too. Its cards are listed in `modules/overview.nix`,
-and the build fails if a subdomain has no card. The names resolve on the LAN
+and the build fails if a subdomain has no card. What has no page of its own -
+Zigbee, Bluetooth, Tailscale, the mirror, the backup, the certificate - gets
+a card too, its dot from a check on lab (`lab-status.socket`) whose answer is
+printed on the card; none of them wakes the disks. The names resolve on the LAN
 only, through Pi-hole (**Notes**, *Reverse proxy*). The ports keep working
 alongside them (`settings.nix`), for a client that does not use Pi-hole.
 

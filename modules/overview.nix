@@ -86,10 +86,35 @@ let
           where = "via ${fqdn "homeAssistant"}";
         }
         {
+          key = "zigbee";
+          name = "Zigbee";
+          about = "Zigbee devices, through the Sonoff dongle";
+          color = "#c9952b";
+          # zha, inside home assistant (modules/home-assistant.nix)
+          href = "https://${fqdn "homeAssistant"}/config/integrations/integration/zha";
+          where = "via ${fqdn "homeAssistant"}";
+        }
+        {
+          key = "bluetooth";
+          name = "Bluetooth";
+          about = "BLE devices for Home Assistant";
+          color = "#2a6dd4";
+          href = "https://${fqdn "homeAssistant"}/config/integrations/integration/bluetooth";
+          where = "via ${fqdn "homeAssistant"}";
+        }
+        {
           key = "pihole";
           name = "Pi-hole";
           about = "LAN DNS and ad blocking";
           color = "#b8323a";
+        }
+        {
+          key = "tailscale";
+          name = "Tailscale";
+          about = "lab and the LAN from anywhere";
+          color = "#4a4f57";
+          href = "https://login.tailscale.com/admin/machines";
+          where = "login.tailscale.com";
         }
       ];
     }
@@ -113,7 +138,184 @@ let
         }
       ];
     }
+    {
+      title = "System";
+      services = [
+        {
+          key = "storage";
+          name = "Storage";
+          about = "The RAID1 mirror under every share";
+          color = "#6a7280";
+          # nothing to open; the mirror is `just storage`
+          href = null;
+          where = settings.storage.root;
+        }
+        {
+          key = "backup";
+          name = "Backup";
+          about = "Config and secrets, every ${settings.backup.onCalendar}";
+          color = "#3f7f86";
+          href = "https://${fqdn "nextcloud"}/apps/files/?dir=/${backupShare}";
+          where = backupShare;
+        }
+        {
+          key = "certificate";
+          name = "Certificate";
+          about = "The *.${domain} wildcard, from Let's Encrypt";
+          color = "#5b8c3a";
+          href = null;
+          where = "acme-renew-${domain}.timer";
+        }
+      ];
+    }
   ];
+
+  # Backups/lab: the backup dir as nextcloud names it, an external storage per
+  # top-level directory of the array
+  backupShare = lib.removePrefix "${settings.storage.root}/" settings.backup.dir;
+
+  # what /up/<key> runs for a card with no http of its own: exit 0 is up, and
+  # what it prints is shown on the card. none of them touches the array's
+  # disks, which would wake them on every visit
+  certDir = config.security.acme.certs.${domain}.directory;
+  checks = {
+    # zha keeps the radio's serial port open for as long as it runs
+    zigbee = ''
+      pid=$(systemctl show -p MainPID --value home-assistant.service)
+      if [ "$pid" = 0 ]; then
+        echo "home assistant is not running"
+        return 1
+      fi
+      for fd in /proc/"$pid"/fd/*; do
+        t=$(readlink "$fd" || true)
+        case $t in
+          /dev/ttyUSB* | /dev/ttyACM*)
+            echo "radio open at $t"
+            return 0
+            ;;
+        esac
+      done
+      echo "no radio open; the dongle is unplugged or zha is not set up"
+      return 1
+    '';
+    bluetooth = ''
+      out=$(timeout 5 bluetoothctl show 2>&1 || true)
+      case $out in
+        *"Powered: yes"*) echo "adapter powered" ;;
+        *"Powered: no"*)
+          echo "adapter off"
+          return 1
+          ;;
+        *)
+          echo "no adapter"
+          return 1
+          ;;
+      esac
+    '';
+    tailscale = ''
+      state=$(tailscale status --json 2>/dev/null | jq -r '.BackendState // empty' || true)
+      case $state in
+        Running) echo "connected" ;;
+        NeedsLogin)
+          echo "logged out; \`just tailscale-up\`"
+          return 1
+          ;;
+        *)
+          echo "''${state:-not running}"
+          return 1
+          ;;
+      esac
+    '';
+    # sysfs and the mount table only
+    storage = ''
+      src=$(findmnt -n -o SOURCE --mountpoint ${settings.storage.root} || true)
+      if [ -z "$src" ]; then
+        echo "not mounted"
+        return 1
+      fi
+      md=/sys/block/''${src##*/}/md
+      degraded=$(cat "$md/degraded")
+      if [ "$degraded" != 0 ]; then
+        echo "degraded, $degraded disk(s) missing"
+        return 1
+      fi
+      echo "$(cat "$md/array_state"), $(cat "$md/raid_disks") disks"
+    '';
+    # touched by lab-backup on success (modules/backup.nix); weekly, so a
+    # day of slack
+    backup = ''
+      stamp=/var/lib/lab-backup/last-success
+      if [ ! -e "$stamp" ]; then
+        echo "no backup yet"
+        return 1
+      fi
+      last=$(date -r "$stamp" '+%a %-d %b')
+      if [ $(($(date +%s) - $(stat -c %Y "$stamp"))) -gt $((8 * 86400)) ]; then
+        echo "last one $last, overdue"
+        return 1
+      fi
+      echo "last one $last"
+    '';
+    # renewal starts 30 days out, so two weeks left means it is failing
+    certificate = ''
+      cert=${certDir}/fullchain.pem
+      if ! issuer=$(openssl x509 -noout -issuer -in "$cert" 2>/dev/null); then
+        echo "no certificate"
+        return 1
+      fi
+      until=$(date -d "$(openssl x509 -noout -enddate -in "$cert" | cut -d= -f2)" '+%-d %b %Y')
+      case $issuer in
+        *minica*)
+          echo "self-signed stand-in; \`just acme-token\`"
+          return 1
+          ;;
+      esac
+      if ! openssl x509 -noout -checkend $((14 * 86400)) -in "$cert" >/dev/null; then
+        echo "expires $until, renewal failing"
+        return 1
+      fi
+      echo "valid until $until"
+    '';
+  };
+
+  # one connection per request (Accept=yes), the path is the check
+  statusSocket = "/run/lab-status.sock";
+  status = pkgs.writeShellApplication {
+    name = "lab-status";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.util-linux
+      pkgs.jq
+      pkgs.openssl
+      pkgs.bluez
+      config.systemd.package
+      config.services.tailscale.package
+    ];
+    text = ''
+      read -r _ path _ || exit 0
+      # the headers too, or closing on them unread resets the connection
+      while IFS= read -r line && [ -n "''${line%$'\r'}" ]; do :; done
+
+      ${lib.concatStrings (
+        lib.mapAttrsToList (key: body: ''
+          check_${key}() {
+            ${body}
+          }
+        '') checks
+      )}
+
+      key=''${path#/}
+      if ! declare -F "check_$key" >/dev/null; then
+        code="404 Not Found"
+        out="no such check"
+      elif out=$("check_$key" 2>&1); then
+        code="200 OK"
+      else
+        code="503 Service Unavailable"
+      fi
+      printf 'HTTP/1.0 %s\r\nContent-Type: text/plain; charset=utf-8\r\nCache-Control: no-store\r\n\r\n%s\n' "$code" "$out"
+    '';
+  };
 
   sojuHost = config.services.soju.hostName;
   # the ircs port speaks no http, so the dot asks soju's local http socket
@@ -138,6 +340,8 @@ let
       "http://127.0.0.1:${toString config.services.matter-server.port}/"
     else if key == "soju" || key == "gamja" then
       "http://unix:${sojuSocket}:/"
+    else if checks ? ${key} then
+      "http://unix:${statusSocket}:/${key}"
     else
       "http://127.0.0.1:${toString ports.${key}}/";
 
@@ -149,24 +353,35 @@ let
       "${settings.hostName}:${toString ports.${key}}" + lib.optionalString (key == "pihole") "/admin"
     );
 
-  # the whole card opens the subdomain; the port is its own link on top
-  card = s: ''
-    <div class="card" data-key="${s.key}">
-      <span class="badge" style="--c: ${s.color}">${lib.substring 0 1 s.name}</span>
-      <span class="text">
-        <a class="name" href="${
-          s.href or "https://${fqdn s.key}"
-        }">${s.name}<span class="dot" title="checking"></span></a>
-        <span class="about">${s.about}</span>
+  # the whole card opens the subdomain; the port is its own link on top. a
+  # card whose href is null opens nothing. a check's answer is its own line
+  card =
+    s:
+    let
+      link = s.href or "https://${fqdn s.key}";
+      title = ''${s.name}<span class="dot" title="checking"></span>'';
+    in
+    ''
+      <div class="card" data-key="${s.key}">
+        <span class="badge" style="--c: ${s.color}">${lib.substring 0 1 s.name}</span>
+        <span class="text">
+          ${
+            if link == null then
+              ''<span class="name">${title}</span>''
+            else
+              ''<a class="name" href="${link}">${title}</a>''
+          }
+          <span class="about">${s.about}</span>
+          ${lib.optionalString (checks ? ${s.key}) ''<span class="detail"></span>''}
         <span class="links">
           <span>${s.where or (fqdn s.key)}</span>
           ${lib.optionalString (
             direct s.key != ""
           ) ''<a href="http://${direct s.key}">${direct s.key}</a>''}
+          </span>
         </span>
-      </span>
-    </div>
-  '';
+      </div>
+    '';
 
   group = g: ''
     <section>
@@ -217,7 +432,7 @@ let
       }
       .card:hover, .card:focus-within { border-color: var(--muted); transform: translateY(-1px); }
       .card a { color: inherit; text-decoration: none; }
-      .name::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+      a.name::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
       .name:focus-visible { outline: none; }
       .badge {
         flex: none; display: grid; place-items: center; width: 42px; height: 42px;
@@ -226,6 +441,8 @@ let
       .text { display: flex; flex-direction: column; min-width: 0; }
       .name { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 16px; }
       .about { color: var(--muted); margin-top: 2px; }
+      .detail { margin-top: 2px; font-size: 13px; }
+      .detail.down { color: var(--down); }
       .links {
         display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 6px;
         color: var(--muted); font-size: 12px; font-family: ui-monospace, monospace;
@@ -246,12 +463,23 @@ let
       // /up/<key> is proxied to the service on this same vhost; a 502 is down
       document.querySelectorAll(".card").forEach(function (card) {
         var dot = card.querySelector(".dot");
-        function mark(up) {
+        var detail = card.querySelector(".detail");
+        function mark(up, text) {
           dot.className = "dot " + (up ? "up" : "down");
           dot.title = up ? "up" : "down";
+          if (detail) {
+            detail.className = "detail" + (up ? "" : " down");
+            detail.textContent = text || (up ? "" : "no answer");
+          }
         }
         fetch("/up/" + card.dataset.key, { redirect: "manual", cache: "no-store" })
-          .then(function (r) { mark(r.type === "opaqueredirect" || r.status < 500); })
+          .then(function (r) {
+            var up = r.type === "opaqueredirect" || r.status < 500;
+            // a check answers in plain text; nginx's own 502 page is html
+            var own = (r.headers.get("content-type") || "").indexOf("text/plain") === 0;
+            if (detail && own) return r.text().then(function (t) { mark(up, t.trim()); });
+            mark(up);
+          })
           .catch(function () { mark(false); });
       });
     </script>
@@ -266,6 +494,28 @@ in
       message = "modules/overview.nix lists no card for ${lib.concatStringsSep ", " missing}";
     }
   ];
+
+  # root, for /proc and the tailscale and bluez sockets; nginx alone may ask
+  systemd.sockets.lab-status = {
+    description = "the start page's checks";
+    wantedBy = [ "sockets.target" ];
+    socketConfig = {
+      ListenStream = statusSocket;
+      Accept = true;
+      SocketGroup = config.services.nginx.group;
+      SocketMode = "0660";
+    };
+  };
+  systemd.services."lab-status@" = {
+    description = "one start page check";
+    serviceConfig = {
+      ExecStart = lib.getExe status;
+      StandardInput = "socket";
+      StandardOutput = "socket";
+      StandardError = "journal";
+      RuntimeMaxSec = "30s";
+    };
+  };
 
   # the certificate is modules/proxy.nix's wildcard
   services.nginx.virtualHosts.${host} = {

@@ -64,6 +64,10 @@ in
     serviceConfig = {
       Type = "oneshot";
       ExecStart = lib.getExe backup;
+      # on the SSD: the start page's backup dot reads its age (modules/overview.nix)
+      # without waking the array, and only a run that got this far touches it
+      StateDirectory = "lab-backup";
+      ExecStartPost = "${lib.getExe' pkgs.coreutils "touch"} /var/lib/lab-backup/last-success";
       # the archive lands in a nextcloud external storage; group-writable like
       # everything else on the array (modules/storage.nix)
       UMask = "0002";
