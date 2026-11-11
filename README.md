@@ -207,6 +207,7 @@ Nextcloud's `files_no_background_scan` stops cron from walking the array.
 | `tailscale-up`                     | join the tailnet; re-run after a restore                             |
 | `wifi-psk`                         | store the Wi-Fi passphrase and reconnect                             |
 | `acme-token`                       | store the Hostinger API token, order the certificate                 |
+| `libera-pw`                        | store the Libera NickServ password, reconnect soju                   |
 | `tmp-dns`                          | public DNS in `/etc/resolv.conf` until the next network change       |
 | `passwords`                        | print the generated service passwords                                |
 | `set-{pihole,nextcloud,immich}-pw` | rotate that service's admin password                                 |
@@ -291,6 +292,51 @@ dir - so, once:
 
 A video downloaded before a segment was submitted keeps no chapter for it;
 `ytdlSub.delayDays` is what makes that rare.
+
+### Chatting on IRC
+
+soju is the bouncer: it stays on Libera.Chat as `antonkesy` around the clock
+and keeps the history, and a client connects to soju, not to Libera. The
+name `irc.antonkesy.de` resolves through Pi-hole only, so the phone or laptop
+has to be on the LAN, or on the tailnet with lab as its DNS (**Notes**,
+*Tailscale*). The certificate is the `*.antonkesy.de` wildcard, so a client
+rejects it until `just acme-token` has run.
+
+| Setting  | Value                                     |
+| -------- | ----------------------------------------- |
+| Server   | `irc.antonkesy.de`                        |
+| Port     | `6697`, TLS on                            |
+| Username | `ak`                                      |
+| Password | the soju line of `just passwords` on lab  |
+| Nickname | anything; soju shows Libera's `antonkesy` |
+
+- **Goguma** (Android): server `irc.antonkesy.de`, nickname `ak`, the
+  password. It lists Libera as its own network.
+- **Halloy** (desktop), in its `config.toml`:
+
+  ```toml
+  [servers.lab]
+  server = "irc.antonkesy.de"
+  port = 6697
+  use_tls = true
+  nickname = "antonkesy"
+
+  [servers.lab.sasl.plain]
+  username = "ak"
+  password = "<the soju password>"
+  ```
+
+  Libera then shows up as a server of its own under `lab`.
+- **Any other client**: the table above, with SASL PLAIN or a server
+  password. One that does not know soju's networks logs in as `ak/libera`
+  instead, one connection per network, and as `ak/libera@<device>` gets
+  its own backlog per device.
+
+`/join #channel` from any client and soju stays in it, also while every
+client is closed; the next connect replays what was said. `/part` leaves for
+good, `/part #channel detach` keeps it joined but out of the client's list.
+The NickServ login is `just libera-pw` (**Notes**, *IRC*), and
+`/msg BouncerServ help` lists what else soju does, e.g. more networks.
 
 ## Backup & restore
 
