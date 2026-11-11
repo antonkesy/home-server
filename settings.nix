@@ -225,8 +225,11 @@ in
   thread = {
     # by serial number: the zigbee dongle has the same usb id
     radio = "/dev/serial/by-id/usb-SONOFF_SONOFF_Dongle_Plus_MG24_0a3bd734ecf8ef11919a6e135c2a50c9-if00-port0";
+    # what the firmware was built for, as its file name says: sonoff's
+    # openthread rcp 2.7.2.0 (nerivec's silabs-firmware-builder), at
+    # 460800 with software flow control, so no rts/cts
     baudRate = 460800;
-    flowControl = true;
+    flowControl = false;
     # lab's link to the LAN (modules/wifi.nix), where the mesh's routes are
     # advertised
     backbone = "wlo1";

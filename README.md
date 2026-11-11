@@ -563,9 +563,13 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   path, since the Zigbee dongle has the same USB id). It forms the Thread
   network on `wpan0` and advertises the routes to it on `wlo1`
   (`thread.backbone`), so matter-server reaches a Thread device like a Wi-Fi
-  one. The dongle has to run OpenThread RCP firmware, not Zigbee:
-  `just thread-radio` says which it runs and at which baud rate, which has to
-  match `thread.baudRate`; `just thread-radio <file>.gbl` flashes one first.
+  one. The dongle ships with Zigbee firmware and has to run OpenThread RCP
+  instead: Sonoff's `sonoff_dongle-pmg24_openthread_rcp_*_460800_sw_flow.gbl`,
+  from the [list their web flasher reads](https://raw.githubusercontent.com/SONOFF-Technologies/sonoff-dongle-series-open-source-firmware/refs/heads/main/firmwares.json).
+  The rate and flow control in its name are `thread.baudRate` and
+  `thread.flowControl` (`sw_flow`: off). `just thread-radio` says which
+  firmware it runs and at which rate; `just thread-radio <file>.gbl` flashes
+  one first.
   Its REST API at `http://127.0.0.1:8081` has no login and stays local. Once,
   in Home Assistant: *Add integration > Open Thread Border Router*, URL
   `http://127.0.0.1:8081`; then *Settings > Devices & services > Thread*,
