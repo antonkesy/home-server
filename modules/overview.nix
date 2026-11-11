@@ -1,4 +1,5 @@
 {
+  config,
   lib,
   pkgs,
   settings,
@@ -10,7 +11,9 @@ let
   fqdn = name: "${subdomains.${name}}.${domain}";
   host = fqdn "overview";
 
-  # what the page lists, in order; keys are those of settings.subdomains
+  # what the page lists, in order; keys are those of settings.subdomains.
+  # one without a subdomain says where its card leads instead: href, and
+  # where, the text in place of the subdomain
   groups = [
     {
       title = "Media";
@@ -74,6 +77,15 @@ let
           color = "#1c9ad6";
         }
         {
+          key = "matter";
+          name = "Matter";
+          about = "Matter devices, paired from Home Assistant";
+          color = "#4b5bb5";
+          # no ui of its own (modules/matter.nix)
+          href = "https://${fqdn "homeAssistant"}/config/integrations/integration/matter";
+          where = "via ${fqdn "homeAssistant"}";
+        }
+        {
           key = "pihole";
           name = "Pi-hole";
           about = "LAN DNS and ad blocking";
@@ -88,11 +100,13 @@ let
 
   # what /up/<key> asks; anything below 500 counts as up. nextcloud's port
   # is only nginx's copy of its vhost, so the vhost itself is asked, over the
-  # name /etc/hosts gives it
+  # name /etc/hosts gives it. matter's port is local only, so not in ports
   upstream =
     key:
     if key == "nextcloud" then
       "https://${fqdn key}/status.php"
+    else if key == "matter" then
+      "http://127.0.0.1:${toString config.services.matter-server.port}/"
     else
       "http://127.0.0.1:${toString ports.${key}}/";
 
@@ -109,10 +123,12 @@ let
     <div class="card" data-key="${s.key}">
       <span class="badge" style="--c: ${s.color}">${lib.substring 0 1 s.name}</span>
       <span class="text">
-        <a class="name" href="https://${fqdn s.key}">${s.name}<span class="dot" title="checking"></span></a>
+        <a class="name" href="${
+          s.href or "https://${fqdn s.key}"
+        }">${s.name}<span class="dot" title="checking"></span></a>
         <span class="about">${s.about}</span>
         <span class="links">
-          <span>${fqdn s.key}</span>
+          <span>${s.where or (fqdn s.key)}</span>
           ${lib.optionalString (
             direct s.key != ""
           ) ''<a href="http://${direct s.key}">${direct s.key}</a>''}
