@@ -388,12 +388,24 @@ the border router fails to start on it with
    is already discovered). It forms the network; the card turns to "leader
    of the network".
 5. *Settings > Devices & services > Thread*: make that network the
-   preferred one, so Matter commissions onto it.
+   preferred one (⋮ > *Set as preferred network* if it is under *Other
+   networks*), so Matter commissions onto it. Home Assistant only does this
+   itself when it hears the border router over mDNS while storing the
+   network, and tries once.
 6. In the Companion app, *Settings > Companion app > Troubleshooting > Sync
-   Thread credentials*. The phone hands the network to a device it pairs.
+   Thread credentials*; it answers *Added network from Home Assistant to
+   this device*. The phone hands the network to a device it pairs. Not
+   *Send credentials to Home Assistant* on the Thread page, which goes the
+   other way and, with nothing on the phone, says *You don't have any
+   credentials to import*. Without the credentials, Android stops pairing
+   with "no router" or "check device instructions", and the device never
+   shows up in `sudo ot-ctl child table`.
 
-A Thread device then pairs like any Matter device, with *Add device* in the
-Companion app.
+A Thread device then pairs like any Matter device, with *Settings > Devices
+& services > Devices > Add device > Add Matter device* in the Companion app,
+not Android's own Matter scanner or Google Home, which want a Google border
+router. The Bosch radiator thermostat [+M] pairs this way out of a factory
+reset (**Notes**, *Zigbee*, for its Zigbee mode).
 
 ## Backup & restore
 
