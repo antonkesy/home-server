@@ -11,15 +11,21 @@ hardware:
     sudo nixos-generate-config --show-hardware-config > "{{ justfile_directory() }}/hardware-configuration.nix"
     nix fmt "{{ justfile_directory() }}/hardware-configuration.nix"
 
-# First switch, then the user password and the Libera NickServ password
+# First switch, then the user password and, until soju has one, the Libera NickServ password
 install:
     #!/usr/bin/env bash
     set -euo pipefail
     cd "{{ justfile_directory() }}"
     [ -f hardware-configuration.nix ] || just hardware
     sudo nixos-rebuild switch --flake "{{ flake }}"
-    sudo passwd "$(nix eval --raw --file "{{ settings }}" user)"
-    just --justfile "{{ justfile() }}" libera-pw
+    user=$(nix eval --raw --file "{{ settings }}" user)
+    sudo passwd "$user"
+    # soju keeps the login across switches; an error (no user or network yet) asks too
+    if sudo sojuctl user run "$user" sasl status -network libera 2>/dev/null | grep -q '^SASL PLAIN enabled'; then
+      echo "Libera login kept; \`just libera-pw\` changes it"
+    else
+      just --justfile "{{ justfile() }}" libera-pw
+    fi
 
 # Build and stage for the next boot; nothing changes until a reboot
 update:

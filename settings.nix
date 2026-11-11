@@ -204,7 +204,8 @@ in
   soju = {
     subdomain = "irc";
     # created when missing; afterwards BouncerServ owns them. the nickserv
-    # login comes from `just libera-pw`, which `just install` asks
+    # login comes from `just libera-pw`, which `just install` asks until soju
+    # has one
     networks = [
       {
         name = "libera";
