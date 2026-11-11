@@ -354,6 +354,47 @@ good, `/part #channel detach` keeps it joined but out of the client's list.
 The NickServ login is `just libera-pw` (**Notes**, *IRC*), and
 `/msg BouncerServ help` lists what else soju does, e.g. more networks.
 
+### Thread devices
+
+A Matter device that speaks Thread instead of Wi-Fi reaches lab through the
+border router on the Sonoff Dongle Plus MG24 (**Notes**, *Thread*). The
+dongle ships with Zigbee firmware (`just thread-radio` reports `EZSP`), and
+the border router fails to start on it with
+`Init() at spinel_driver.cpp:87: Failure`. Once, on lab:
+
+1. Fetch Sonoff's OpenThread RCP build for the dongle, `dongle-pmg24` /
+   `openthread_rcp` in the
+   [list their web flasher reads](https://raw.githubusercontent.com/SONOFF-Technologies/sonoff-dongle-series-open-source-firmware/refs/heads/main/firmwares.json),
+   which also has each file's sha256. The stable one, 2.7.2.0:
+
+   ```sh
+   curl -fLo /tmp/ot-rcp.gbl https://raw.githubusercontent.com/SONOFF-Technologies/sonoff-dongle-series-open-source-firmware/main/firmwares/nerivec/sonoff_dongle-pmg24_openthread_rcp_2.7.2.0_GitHub-fb0446f53_460800_sw_flow.gbl
+   echo "a3cf53efb565b1492a1d9062a18ff3c4c0200941f79c7bfa3211f10e756d4ade  /tmp/ot-rcp.gbl" | sha256sum -c
+   ```
+
+2. `just thread-radio /tmp/ot-rcp.gbl` flashes it and probes again; the last
+   line reads `Detected ApplicationType.SPINEL ... at 460800 baudrate`. The
+   bootloader stays, so a failed flash can simply be repeated. The rate and
+   the flow control are also in the file name (`460800_sw_flow`), and have
+   to match `thread.baudRate` and `thread.flowControl` (`sw_flow`: off);
+   with hardware flow control on, the agent fails the same way as on the
+   Zigbee firmware.
+3. If `settings.nix` changed for it, `just install`; otherwise
+   `sudo systemctl restart otbr-agent`. The Thread card on
+   [https://lab.antonkesy.de](https://lab.antonkesy.de) then answers, with
+   "disabled; no network formed yet" until the next step.
+4. Home Assistant: *Settings > Devices & services > Add integration > Open
+   Thread Border Router*, URL `http://127.0.0.1:8081` (or accept it where it
+   is already discovered). It forms the network; the card turns to "leader
+   of the network".
+5. *Settings > Devices & services > Thread*: make that network the
+   preferred one, so Matter commissions onto it.
+6. In the Companion app, *Settings > Companion app > Troubleshooting > Sync
+   Thread credentials*. The phone hands the network to a device it pairs.
+
+A Thread device then pairs like any Matter device, with *Add device* in the
+Companion app.
+
 ## Backup & restore
 
 `just backup [dir]` writes one `lab-<date>.tar.zst` to
@@ -563,20 +604,12 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   path, since the Zigbee dongle has the same USB id). It forms the Thread
   network on `wpan0` and advertises the routes to it on `wlo1`
   (`thread.backbone`), so matter-server reaches a Thread device like a Wi-Fi
-  one. The dongle ships with Zigbee firmware and has to run OpenThread RCP
-  instead: Sonoff's `sonoff_dongle-pmg24_openthread_rcp_*_460800_sw_flow.gbl`,
-  from the [list their web flasher reads](https://raw.githubusercontent.com/SONOFF-Technologies/sonoff-dongle-series-open-source-firmware/refs/heads/main/firmwares.json).
-  The rate and flow control in its name are `thread.baudRate` and
-  `thread.flowControl` (`sw_flow`: off). `just thread-radio` says which
-  firmware it runs and at which rate; `just thread-radio <file>.gbl` flashes
-  one first.
-  Its REST API at `http://127.0.0.1:8081` has no login and stays local. Once,
-  in Home Assistant: *Add integration > Open Thread Border Router*, URL
-  `http://127.0.0.1:8081`; then *Settings > Devices & services > Thread*,
-  make its network the preferred one, and in the Companion app *Settings >
-  Companion app > Troubleshooting > Sync Thread credentials*, so the phone
-  can hand them to a device it pairs. The network and its key live in
-  `/var/lib/thread`, which is in the backup.
+  one. The dongle has to run OpenThread RCP firmware, at the baud rate and
+  flow control in `thread.baudRate` and `thread.flowControl`. Its REST API
+  at `http://127.0.0.1:8081` has no login and stays local. The network and
+  its key live in `/var/lib/thread`, which is in the backup. Flashing the
+  dongle and the setup in Home Assistant are **Day to day**, *Thread
+  devices*.
 - **Zigbee** goes through ZHA, built into Home Assistant, on the Sonoff
   ZBDongle-P (`check-usb`). Once: *Settings > Devices & services > Add
   integration > Zigbee Home Automation*, and pick the dongle by its
