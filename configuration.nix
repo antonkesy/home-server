@@ -27,6 +27,7 @@
     ./modules/paperless.nix
     ./modules/secrets.nix
     ./modules/soju.nix
+    ./modules/thread.nix
     ./modules/users.nix
     ./modules/ytdl-sub.nix
   ];

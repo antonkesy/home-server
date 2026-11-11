@@ -40,7 +40,7 @@ rollback:
 
 # Unit status
 status:
-    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service matter-server.service jellyfin.service audiobookshelf.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service tailscaled.service wpa_supplicant.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service bookorbit-setup.service soju.service soju-setup.service pihole-domains.service acme-renew-antonkesy.de.timer lab-backup.timer ytdl-sub-youtube.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
+    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service matter-server.service otbr-agent.service jellyfin.service audiobookshelf.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service tailscaled.service wpa_supplicant.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service bookorbit-setup.service soju.service soju-setup.service pihole-domains.service acme-renew-antonkesy.de.timer lab-backup.timer ytdl-sub-youtube.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
 
 # Join the tailnet (opens a login URL); re-run after a restore
 tailscale-up:
@@ -126,6 +126,18 @@ check-usb:
       printf 'new  %-20s on %s at %s Mb/s, %s\n' "${product:-?}" "$p" "$(rd "$sys/$p/speed")" "$(id "$p")"
     done
     exit "$fail"
+
+# Which firmware the Thread dongle runs, and at which baud rate; with a .gbl, flash that first
+thread-radio firmware="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    radio=$(nix eval --raw --file "{{ settings }}" thread.radio)
+    flasher() { sudo nix run nixpkgs#python3Packages.universal-silabs-flasher -- --device "$radio" "$@"; }
+    # the agent holds the port; back up whatever happens
+    sudo systemctl stop otbr-agent.service
+    trap 'sudo systemctl start otbr-agent.service' EXIT
+    [ -z "{{ firmware }}" ] || flasher flash --firmware "$(realpath "{{ firmware }}")"
+    flasher probe
 
 # Follow one unit, e.g. `just logs podman-pihole`
 logs unit:

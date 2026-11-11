@@ -219,6 +219,19 @@ in
     ];
   };
 
+  # modules/thread.nix: the thread border router, on the sonoff dongle plus
+  # mg24 (usb). it has to run the openthread rcp firmware; `just thread-radio`
+  # says which firmware it has, and at which baud rate
+  thread = {
+    # by serial number: the zigbee dongle has the same usb id
+    radio = "/dev/serial/by-id/usb-SONOFF_SONOFF_Dongle_Plus_MG24_0a3bd734ecf8ef11919a6e135c2a50c9-if00-port0";
+    baudRate = 460800;
+    flowControl = true;
+    # lab's link to the LAN (modules/wifi.nix), where the mesh's routes are
+    # advertised
+    backbone = "wlo1";
+  };
+
   # `just check-usb`: what is plugged in where. port is the device's name under
   # /sys/bus/usb/devices, <bus>-<port>[.<hub port>...]; speed is in Mb/s as
   # that directory's `speed` holds it (480 is USB 2, 5000 and up USB 3).
@@ -241,6 +254,13 @@ in
       name = "zigbee dongle";
       id = "10c4:ea60";
       port = "3-1";
+      speed = 12;
+    }
+    # thread, for the border router (thread.radio)
+    {
+      name = "thread dongle";
+      id = "10c4:ea60";
+      port = "3-2";
       speed = 12;
     }
     {

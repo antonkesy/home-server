@@ -67,6 +67,8 @@ flowchart TD
     mts["matter-server<br>:5353, :5540/udp<br>websocket :5580 local only"]
   end
 
+  otb["otbr-agent<br>wpan0 on the MG24 dongle<br>REST :8081 local only"]
+
   yts["ytdl-sub-youtube.timer<br>02:30"]
 
   subgraph ssdg["SSD - /var/lib"]
@@ -97,6 +99,8 @@ flowchart TD
   has --> st
   has --> mts
   mts --> dev["Matter devices<br>on the LAN"]
+  has --> otb
+  mts --> otb --> tdev["Thread devices"]
   ncb --> pg & rd
   ncb --> med & pho & doc & arc & bak
   jfb --> med
@@ -153,7 +157,7 @@ built into the mirror once by hand; see **Storage** below.
 all of them, by name and by port, with a dot for whether each one answers;
 `http://lab` lands there too. Its cards are listed in `modules/overview.nix`,
 and the build fails if a subdomain has no card. What has no page of its own -
-Zigbee, Bluetooth, Tailscale, the mirror, the backup, the certificate - gets
+Zigbee, Thread, Bluetooth, Tailscale, the mirror, the backup, the certificate - gets
 a card too, its dot from a check on lab (`lab-status.socket`) whose answer is
 printed on the card; none of them wakes the disks. On the left, a resources
 panel: CPU, memory, swap, disks and network, and which service takes how much
@@ -201,6 +205,7 @@ Nextcloud's `files_no_background_scan` stops cron from walking the array.
 | `storage`                          | mirror health and whether the disks are spinning                     |
 | `pg-collation`                     | reindex the databases a glibc update left on the old sort order      |
 | `check-usb`                        | every USB device in `settings.nix` on its port, at its speed         |
+| `thread-radio [firmware]`          | the Thread dongle's firmware and baud rate; flash a `.gbl` first     |
 | `fix-perms`                        | re-run the array-wide ownership and ACL repair                       |
 | `backup [dir]`                     | config and secrets archive, to `Backups/lab` by default              |
 | `restore [archive]`                | restore the newest archive, or the given one                         |
@@ -367,6 +372,8 @@ Nextcloud login away. Inside:
 - Home Assistant: `.storage` (integrations, auth, devices), and a snapshot of ZHA's
   `zigbee.db` (the Zigbee network key and every paired device)
 - Matter: the fabric, i.e. every paired device (without it, all of them pair again)
+- Thread: the border router's network and its key (without it, every Thread
+  device joins again)
 - Jellyfin: config, library database, plugins
 - Audiobookshelf: config and database (users, progress, libraries), item
   metadata and covers
@@ -549,8 +556,23 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   services > Add integration > Matter*, keep the suggested URL. Pair devices
   with *Add device* in the Companion app (not the browser): it uses the
   phone's Bluetooth to commission them onto the Wi-Fi. Matter runs
-  over IPv6 and finds devices by mDNS, hence UDP 5353 and 5540. Wi-Fi devices
-  only: a Thread device also needs a Thread border router on the LAN.
+  over IPv6 and finds devices by mDNS, hence UDP 5353 and 5540. Thread
+  devices go through the border router below.
+- **Thread** (`modules/thread.nix`). `otbr-agent` is the border router, on
+  the Sonoff Dongle Plus MG24 (`thread.radio`, by its `/dev/serial/by-id/`
+  path, since the Zigbee dongle has the same USB id). It forms the Thread
+  network on `wpan0` and advertises the routes to it on `wlo1`
+  (`thread.backbone`), so matter-server reaches a Thread device like a Wi-Fi
+  one. The dongle has to run OpenThread RCP firmware, not Zigbee:
+  `just thread-radio` says which it runs and at which baud rate, which has to
+  match `thread.baudRate`; `just thread-radio <file>.gbl` flashes one first.
+  Its REST API at `http://127.0.0.1:8081` has no login and stays local. Once,
+  in Home Assistant: *Add integration > Open Thread Border Router*, URL
+  `http://127.0.0.1:8081`; then *Settings > Devices & services > Thread*,
+  make its network the preferred one, and in the Companion app *Settings >
+  Companion app > Troubleshooting > Sync Thread credentials*, so the phone
+  can hand them to a device it pairs. The network and its key live in
+  `/var/lib/thread`, which is in the backup.
 - **Zigbee** goes through ZHA, built into Home Assistant, on the Sonoff
   ZBDongle-P (`check-usb`). Once: *Settings > Devices & services > Add
   integration > Zigbee Home Automation*, and pick the dongle by its

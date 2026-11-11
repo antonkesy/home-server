@@ -95,6 +95,15 @@ let
           where = "via ${fqdn "homeAssistant"}";
         }
         {
+          key = "thread";
+          name = "Thread";
+          about = "Thread devices, through the Sonoff MG24";
+          color = "#3c8d7a";
+          # the border router has no ui of its own (modules/thread.nix)
+          href = "https://${fqdn "homeAssistant"}/config/thread";
+          where = "via ${fqdn "homeAssistant"}";
+        }
+        {
           key = "bluetooth";
           name = "Bluetooth";
           about = "BLE devices for Home Assistant";
@@ -198,6 +207,21 @@ let
       echo "no radio open; the dongle is unplugged or zha is not set up"
       return 1
     '';
+    # the border router's own role in the network, from its local rest api
+    thread = ''
+      if ! role=$(curl -sf --max-time 3 http://127.0.0.1:${toString config.services.openthread-border-router.rest.listenPort}/node/state); then
+        echo "border router not answering"
+        return 1
+      fi
+      role=''${role//\"/}
+      case $role in
+        leader | router | child) echo "$role of the network" ;;
+        *)
+          echo "$role; no network formed yet"
+          return 1
+          ;;
+      esac
+    '';
     bluetooth = ''
       out=$(timeout 5 bluetoothctl show 2>&1 || true)
       case $out in
@@ -298,6 +322,7 @@ let
       pkgs.coreutils
       pkgs.util-linux
       pkgs.jq
+      pkgs.curl
       pkgs.openssl
       pkgs.bluez
       config.systemd.package
