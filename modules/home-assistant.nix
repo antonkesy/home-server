@@ -49,8 +49,10 @@ in
   services.home-assistant = {
     enable = true;
     # upstream's defaults, plus matter (modules/matter.nix), the thread border
-    # router and thread's own panel (modules/thread.nix), and zha. an
-    # integration added in the ui only loads when its component is built in.
+    # router and thread's own panel (modules/thread.nix), upnp (the fritz!box,
+    # found by ssdp; without it the discovery fails on a missing module), and
+    # zha. an integration added in the ui only loads when its component is
+    # built in.
     # zha also gets the unit access to the serial ports (the sonoff dongle in
     # settings.usb); its network lives in zigbee.db, which lab-backup snapshots
     extraComponents = [
@@ -60,6 +62,7 @@ in
       "matter"
       "otbr"
       "thread"
+      "upnp"
       "zha"
     ];
     config = {
