@@ -29,6 +29,7 @@ tar --zstd -xf "$archive" -C "$stage" --occurrence=1 nextcloud.pgdump
 # archives from before immich have no dump; the fresh install's db then stays
 tar --zstd -xf "$archive" -C "$stage" --occurrence=1 immich.pgdump 2>/dev/null || true
 tar --zstd -xf "$archive" -C "$stage" --occurrence=1 bookorbit.pgdump 2>/dev/null || true
+tar --zstd -xf "$archive" -C "$stage" --occurrence=1 zigbee.db 2>/dev/null || true
 
 systemctl stop home-assistant.service matter-server.service jellyfin.service audiobookshelf.service \
   paperless-scheduler.service paperless-task-queue.service podman-pihole.service \
@@ -39,9 +40,12 @@ systemctl stop home-assistant.service matter-server.service jellyfin.service aud
 rm -f /var/lib/paperless/db.sqlite3-{wal,shm,journal} \
   /var/lib/pihole/gravity.db-{wal,shm,journal} \
   /var/lib/jellyfin/data/*.db-{wal,shm,journal} \
-  /var/lib/audiobookshelf/config/*.sqlite-{wal,shm,journal}
+  /var/lib/audiobookshelf/config/*.sqlite-{wal,shm,journal} \
+  /var/lib/hass/zigbee.db-{wal,shm,journal}
 
-tar --zstd -xf "$archive" -C / --anchored --exclude=manifest --exclude='*.pgdump'
+# anchored: zigbee.db is the top-level snapshot, not a file under /var/lib/hass
+tar --zstd -xf "$archive" -C / --anchored --exclude=manifest --exclude='*.pgdump' --exclude=zigbee.db
+[ ! -f "$stage/zigbee.db" ] || cp "$stage/zigbee.db" /var/lib/hass/zigbee.db
 
 # uids differ between installs
 chown -R nextcloud:nextcloud /var/lib/nextcloud/config /var/lib/nextcloud/data

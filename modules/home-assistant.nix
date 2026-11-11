@@ -48,13 +48,16 @@ in
 {
   services.home-assistant = {
     enable = true;
-    # upstream's defaults, plus matter (modules/matter.nix). an integration
-    # added in the ui only loads when its component is built in
+    # upstream's defaults, plus matter (modules/matter.nix) and zha. an
+    # integration added in the ui only loads when its component is built in.
+    # zha also gets the unit access to the serial ports (the sonoff dongle in
+    # settings.usb); its network lives in zigbee.db, which lab-backup snapshots
     extraComponents = [
       "default_config"
       "met"
       "esphome"
       "matter"
+      "zha"
     ];
     config = {
       default_config = { };

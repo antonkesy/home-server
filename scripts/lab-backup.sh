@@ -34,6 +34,13 @@ trap cleanup EXIT
 runuser -u postgres -- pg_dump -h /run/postgresql -Fc -Z0 --no-sync nextcloud > "$stage/nextcloud.pgdump"
 runuser -u postgres -- pg_dump -h /run/postgresql -Fc -Z0 --no-sync immich > "$stage/immich.pgdump"
 runuser -u postgres -- pg_dump -h /run/postgresql -Fc -Z0 --no-sync bookorbit > "$stage/bookorbit.pgdump"
+# zha's network key and pairings; home assistant stays up, so sqlite's online
+# backup rather than the live file and its wal
+staged=(manifest nextcloud.pgdump immich.pgdump bookorbit.pgdump)
+if [ -e /var/lib/hass/zigbee.db ]; then
+  sqlite3 /var/lib/hass/zigbee.db ".backup '$stage/zigbee.db'"
+  staged+=(zigbee.db)
+fi
 
 printf 'host=%s\ndate=%s\nnixos=%s\nstateVersion=%s\nnextcloud=%s\nimmich=%s\npostgresql=%s\n' \
   "$host" "$(date -Is)" "$(cat /run/current-system/nixos-version)" \
@@ -66,6 +73,7 @@ tar --use-compress-program='zstd -T0' -cf "$stage/$name" --anchored --wildcards 
   --exclude='var/lib/nextcloud/config/override.config.php' \
   --exclude='var/lib/nextcloud/data/appdata_*/preview' \
   --exclude='var/lib/hass/home-assistant_v2.db*' \
+  --exclude='var/lib/hass/zigbee.db*' \
   --exclude='var/lib/hass/home-assistant.log*' \
   --exclude='var/lib/hass/deps' \
   --exclude='var/lib/hass/tts' \
@@ -87,7 +95,7 @@ tar --use-compress-program='zstd -T0' -cf "$stage/$name" --anchored --wildcards 
   --exclude='var/lib/pihole/gravity_old.db' \
   --exclude='var/lib/pihole/listsCache' \
   --exclude='var/lib/bookorbit/data/book-bucket' \
-  -C "$stage" manifest nextcloud.pgdump immich.pgdump bookorbit.pgdump -C / "${include[@]}" || rc=$?
+  -C "$stage" "${staged[@]}" -C / "${include[@]}" || rc=$?
 # 1: a live home assistant file changed mid-read
 [ "$rc" -le 1 ] || exit "$rc"
 

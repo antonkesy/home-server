@@ -21,6 +21,7 @@ let
         pkgs.util-linux
         pkgs.findutils
         pkgs.diffutils
+        pkgs.sqlite
         config.services.postgresql.package
         config.services.nextcloud.occ
         config.systemd.package

@@ -307,7 +307,8 @@ Nextcloud login away. Inside:
 - BookOrbit: a Postgres dump (users, reading progress, the library index),
   the secrets, covers
 - Paperless: database and secret key (the search index is rebuilt on start)
-- Home Assistant: `.storage` (integrations, auth, devices)
+- Home Assistant: `.storage` (integrations, auth, devices), and a snapshot of ZHA's
+  `zigbee.db` (the Zigbee network key and every paired device)
 - Matter: the fabric, i.e. every paired device (without it, all of them pair again)
 - Jellyfin: config, library database, plugins
 - Audiobookshelf: config and database (users, progress, libraries), item
@@ -493,6 +494,14 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   phone's Bluetooth to commission them onto the Wi-Fi. Matter runs
   over IPv6 and finds devices by mDNS, hence UDP 5353 and 5540. Wi-Fi devices
   only: a Thread device also needs a Thread border router on the LAN.
+- **Zigbee** goes through ZHA, built into Home Assistant, on the Sonoff
+  ZBDongle-P (`check-usb`). Once: *Settings > Devices & services > Add
+  integration > Zigbee Home Automation*, and pick the dongle by its
+  `/dev/serial/by-id/` path. Bosch devices only join with their install code:
+  *Add device > Add via QR code*. The Bosch radiator thermostat [+M] defaults
+  to Matter; after a factory reset, hold its button 3 s until it shows "Z",
+  and build the code from its label as
+  `RB01SG0D83101826480080000000000000000000<IEEE address>DLK<install code>`.
 - **Tailscale** (`modules/tailscale.nix`) makes lab reachable from outside.
   `just tailscale-up` once prints the login URL; the node key then lives in
   `/var/lib/tailscale` and is in the backup. `tailscale0` is a trusted
