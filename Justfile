@@ -11,7 +11,7 @@ hardware:
     sudo nixos-generate-config --show-hardware-config > "{{ justfile_directory() }}/hardware-configuration.nix"
     nix fmt "{{ justfile_directory() }}/hardware-configuration.nix"
 
-# First switch, then the user password
+# First switch, then the user password and the Libera NickServ password
 install:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -19,6 +19,7 @@ install:
     [ -f hardware-configuration.nix ] || just hardware
     sudo nixos-rebuild switch --flake "{{ flake }}"
     sudo passwd "$(nix eval --raw --file "{{ settings }}" user)"
+    just --justfile "{{ justfile() }}" libera-pw
 
 # Build and stage for the next boot; nothing changes until a reboot
 update:
@@ -196,6 +197,21 @@ acme-token:
     domain=$(nix eval --raw --file "{{ settings }}" domain)
     sudo systemctl start "acme-order-renew-$domain.service"
     sudo journalctl -u "acme-order-renew-$domain" -n 20 --no-pager
+
+# Store the NickServ password soju logs in to Libera with (SASL), then reconnect; empty skips
+libera-pw:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    user=$(nix eval --raw --file "{{ settings }}" user)
+    nick=$(nix eval --json --file "{{ settings }}" soju.networks | jq -r '.[] | select(.name == "libera") | .nick')
+    read -rsp "NickServ password for $nick on Libera (empty to skip): " pw; echo
+    [ -n "$pw" ] || { echo "skipped; \`just libera-pw\` sets it later"; exit 0; }
+    # the user and the network have to be there first; the setup is a no-op when they are
+    sudo systemctl start soju-setup.service
+    sudo sojuctl user run "$user" sasl set-plain -network libera "$nick" "$pw"
+    # sasl is only sent on connect
+    sudo systemctl restart soju.service
+    echo "stored; soju reconnects to Libera with it"
 
 # Garbage-collect; also drops the rollback generations
 clean:

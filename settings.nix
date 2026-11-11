@@ -202,7 +202,7 @@ in
   soju = {
     subdomain = "irc";
     # created on the first start only; afterwards BouncerServ owns them. the
-    # nickserv login goes in by hand: /msg BouncerServ sasl set-plain
+    # nickserv login comes from `just libera-pw`, which `just install` asks
     networks = [
       {
         name = "libera";

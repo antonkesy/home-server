@@ -354,9 +354,9 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   connects to `irc.antonkesy.de:6697` over TLS as `ak` with the password from
   `just passwords`, and sees one server per network. To log in to NickServ,
   register the nick once through the bouncer (`/msg NickServ REGISTER ...`),
-  then `/msg BouncerServ sasl set-plain antonkesy <password>`. More networks:
-  `/msg BouncerServ network create -addr <host>`, or `soju.networks` in
-  `settings.nix` before the first start.
+  then `just libera-pw` (also asked by `just install`; empty skips). More
+  networks: `/msg BouncerServ network create -addr <host>`, or
+  `soju.networks` in `settings.nix` before the first start.
 - **Reverse proxy** (`modules/proxy.nix`). nginx serves every web UI at
   `https://<name>.antonkesy.de`. The names are in `subdomains` in `settings.nix`
   and go into `/etc/hosts`, which is how Pi-hole learns them. The public zone
