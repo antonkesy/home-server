@@ -30,7 +30,7 @@ in
     environment = {
       TZ = config.time.timeZone;
       FTLCONF_dns_upstreams = lib.concatStringsSep ";" upstreamDns;
-      # fritz.box is a real public domain: LAN names and reverse lookups go to the router
+      # LAN names and reverse lookups not in /etc/hosts go to the router
       FTLCONF_dns_revServers = "true,${lan.subnet},${lan.router},${lan.domain}";
       FTLCONF_dns_listeningMode = "all";
       FTLCONF_misc_etc_dnsmasq_d = "true";

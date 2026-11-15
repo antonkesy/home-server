@@ -49,7 +49,7 @@ in
   services.home-assistant = {
     enable = true;
     # upstream's defaults, plus matter (modules/matter.nix), the thread border
-    # router and thread's own panel (modules/thread.nix), upnp (the fritz!box,
+    # router and thread's own panel (modules/thread.nix), upnp (the router,
     # found by ssdp; without it the discovery fails on a missing module), and
     # zha. an integration added in the ui only loads when its component is
     # built in.

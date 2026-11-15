@@ -22,11 +22,13 @@ in
   ocrLanguages = "deu+eng";
 
   lan = {
-    # static DHCP lease on the Fritz!Box, held by the wi-fi card's MAC
-    address = "192.168.178.29";
-    subnet = "192.168.178.0/24";
-    router = "192.168.178.1";
-    domain = "fritz.box";
+    # address reservation on the TP-Link BE550, held by the wi-fi card's MAC
+    address = "192.168.0.29";
+    subnet = "192.168.0.0/24";
+    router = "192.168.0.1";
+    # the router hands out no domain; home.arpa is the one reserved for home
+    # networks (RFC 8375), so it never shadows a public name
+    domain = "home.arpa";
   };
 
   # modules/wifi.nix: lab's link to the LAN. the passphrase is not here but

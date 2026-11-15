@@ -12,9 +12,9 @@ Tailscale, built from a flake.
 
 ```mermaid
 flowchart LR
-  router["Fritz!Box<br>192.168.178.1<br>static lease .29"] -. "Wi-Fi" .- nic["wlan<br>wpa_supplicant"]
+  router["TP-Link BE550<br>192.168.0.1<br>reserved .29"] -. "Wi-Fi" .- nic["wlan<br>wpa_supplicant"]
 
-  subgraph lab["lab - 192.168.178.29"]
+  subgraph lab["lab - 192.168.0.29"]
     nic
 
     subgraph nvme["nvme0n1 - 512 GB SSD"]
@@ -133,7 +133,7 @@ just install
 Service passwords are generated on the switch (`gen-secrets`) and kept
 across rebuilds. On a new machine run `just hardware` first, or
 `just migrate` (hardware, install, restore). lab joins the LAN over Wi-Fi:
-`just wifi-psk` once, then move the static lease to the Wi-Fi card (**Notes**,
+`just wifi-psk` once, then reserve lab's address for the Wi-Fi card (**Notes**,
 *Wi-Fi*); until then a cable does the job. The two data disks have to be
 built into the mirror once by hand; see **Storage** below.
 
@@ -489,9 +489,9 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   redirects to the start page; HTTPS for an unknown name is refused. Nextcloud is its own nginx vhost, plus a plain-HTTP copy of it on
   :8080 with `fastcgi_param HTTPS off`; on one shared vhost Nextcloud would
   mark its cookies Secure and the browser would drop them over HTTP.
-- **LAN names.** Pi-hole serves `lab` and `lab.fritz.box` from the server's
-  `/etc/hosts`; everything else under `fritz.box` is forwarded to the router,
-  because `fritz.box` is a real public domain.
+- **LAN names.** Pi-hole serves `lab` and `lab.home.arpa` from the server's
+  `/etc/hosts`; everything else under `home.arpa`, and reverse lookups, is
+  forwarded to the router.
 - **Nextcloud** is trimmed to file sharing: `nextcloud-disable-apps` turns the
   stock dashboard, activity, photos and similar apps off on every boot, cron
   runs every 15 minutes. `previewgenerator` is the exception - it is an
@@ -597,11 +597,10 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   works and is preferred. The passphrase is not in the repo: `just wifi-psk`
   writes it to `/var/lib/wifi/secrets`, readable only by root and the
   `wpa_supplicant` group, and it is in the backup. Until then the file is
-  empty and the network is skipped. Once, in the Fritz!Box: Home Network >
-  Network, open lab's Wi-Fi entry and tick *Always assign this network device
-  the same IPv4 address* for `192.168.178.29` (`lan.address`), after
-  removing it from the old wired entry - everything on the LAN, Pi-hole's
-  DNS included, expects lab there. The card keeps its own MAC, so the lease
+  empty and the network is skipped. Once, in the TP-Link BE550's web UI
+  (`http://192.168.0.1`): Advanced > Network > DHCP Server > Address
+  Reservation, add lab's Wi-Fi MAC with `192.168.0.29` (`lan.address`) -
+  everything on the LAN, Pi-hole's DNS included, expects lab there. The card keeps its own MAC, so the lease
   holds. `wifi.country` sets the regulatory domain, without which most of the
   5 GHz channels stay off.
 - **Matter** (`modules/matter.nix`). `matter-server` is the controller; Home
@@ -635,7 +634,7 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   `just tailscale-up` once prints the login URL; the node key then lives in
   `/var/lib/tailscale` and is in the backup. `tailscale0` is a trusted
   interface, so every service answers to a tailnet peer as it would on the
-  LAN. The node advertises `192.168.178.0/24` - approve the route in the
+  LAN. The node advertises `192.168.0.0/24` - approve the route in the
   admin console to reach the rest of the LAN through it - and keeps its own
   DNS (`--accept-dns=false`), because the Pi-hole on this host would
   otherwise be replaced by the tailnet's MagicDNS. Flags are in
@@ -711,13 +710,13 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
 ## Problems & Fixes
 
 - **`ssh lab`: connection refused.** `lab` resolves to loopback. Check
-  `dig +short lab @192.168.178.29`; `127.0.0.2` means Pi-hole serves a stale
+  `dig +short lab @192.168.0.29`; `127.0.0.2` means Pi-hole serves a stale
   `/etc/hosts`: `sudo systemctl restart podman-pihole`.
 - **No network after a switch to Wi-Fi.** `just logs wpa_supplicant`:
   `Waiting for wireless interfaces` means no card or no firmware;
   `EXT PW` or `4-Way Handshake failed` means the passphrase - re-run
-  `just wifi-psk`. Associated but on the wrong address means the lease is
-  still on the wired entry in the Fritz!Box.
+  `just wifi-psk`. Associated but on the wrong address means the router has no
+  reservation for the Wi-Fi card's MAC.
 - **No DNS on the server.** `just tmp-dns` writes a public resolver into
   `/etc/resolv.conf`.
 - **The array is degraded.** `just storage` names the missing member.
