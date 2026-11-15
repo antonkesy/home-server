@@ -25,6 +25,7 @@ in
       # tailnet only (modules/proxy.nix)
       server.listen = "0.0.0.0:${toString settings.ports.yass}";
       scanner.device = settings.yass.device;
+      scanner.defaults.source = settings.yass.source;
       output.directory = consume;
     };
   };

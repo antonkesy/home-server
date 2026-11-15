@@ -209,6 +209,10 @@ in
     # a substring of the sane device id, epsonds:libusb:<bus>:<device>; the
     # number changes on every replug
     device = "epsonds";
+    # the DS-530 II feeds sheets only and reads both sides in one pass; blank
+    # backs are dropped by the blank page detection. each browser can still
+    # pick another source, and remembers it
+    source = "duplex";
   };
 
   # modules/soju.nix: the irc bouncer, ircs://<subdomain>.<domain>:<ports.soju>.
