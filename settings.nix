@@ -59,6 +59,7 @@ in
     bookOrbit = "books";
     pihole = "pihole";
     gamja = "chat";
+    yass = "scan";
   };
 
   # pi-hole upstreams; also the host's own resolvers (modules/pihole.nix)
@@ -201,6 +202,15 @@ in
     };
   };
 
+  # modules/yass.nix: scanning from the browser, on the epson DS-530 II.
+  # no login, so LAN and tailnet only. a finished scan is downloaded, or
+  # saved straight into paperless's consume folder
+  yass = {
+    # a substring of the sane device id, epsonds:libusb:<bus>:<device>; the
+    # number changes on every replug
+    device = "epsonds";
+  };
+
   # modules/soju.nix: the irc bouncer, ircs://<subdomain>.<domain>:<ports.soju>.
   # the login is `user`, the password /var/lib/soju/admin-pass
   soju = {
@@ -241,7 +251,9 @@ in
   # `just check-usb`: what is plugged in where. port is the device's name under
   # /sys/bus/usb/devices, <bus>-<port>[.<hub port>...]; speed is in Mb/s as
   # that directory's `speed` holds it (480 is USB 2, 5000 and up USB 3).
-  # a device not listed here is printed by the check, with all three
+  # driver = false for a device only userspace talks to; otherwise a kernel
+  # driver has to have claimed it. a device not listed here is printed by the
+  # check, with all three
   usb = [
     # the array's enclosure: a hub on 2-2 with one bridge per disk behind it
     {
@@ -281,6 +293,15 @@ in
       id = "8087:0033";
       port = "3-10";
       speed = 12;
+    }
+    # the scanner (modules/yass.nix). sane opens it through libusb while it
+    # scans, so no kernel driver ever binds it
+    {
+      name = "scanner";
+      id = "04b8:0182";
+      port = "4-3";
+      speed = 5000;
+      driver = false;
     }
   ];
 
@@ -335,5 +356,6 @@ in
     audiobookshelf = 13378;
     # ircs, not behind the proxy (modules/soju.nix)
     soju = 6697;
+    yass = 8085;
   };
 }

@@ -3,8 +3,8 @@
 [![check](https://github.com/antonkesy/home-server/actions/workflows/check.yml/badge.svg)](https://github.com/antonkesy/home-server/actions/workflows/check.yml)
 
 Home server (`lab`) running Home Assistant, Immich, Jellyfin, Audiobookshelf,
-Nextcloud, Paperless-ngx, Pi-hole, MusicGrabber, BookOrbit, ytdl-sub, soju and
-Tailscale, built from a flake.
+Nextcloud, Paperless-ngx, YASS, Pi-hole, MusicGrabber, BookOrbit, ytdl-sub, soju
+and Tailscale, built from a flake.
 
 ## Setup
 
@@ -34,6 +34,7 @@ flowchart LR
       igpu["Intel iGPU<br>QSV transcoding"]
       ble["Bluetooth<br>BLE for Home Assistant"]
       zram["zram 7.6 GB swap<br>no swap partition"]
+      scn["Epson DS-530 II<br>USB 3, sane epsonds"]
     end
   end
 
@@ -64,6 +65,7 @@ flowchart TD
     mgb["musicgrabber in podman<br>:38274"]
     bob["bookorbit in podman<br>:3000"]
     soj["soju :6697 ircs<br>irc.antonkesy.de"]
+    ysb["yass :8085<br>scanner, no login"]
     mts["matter-server<br>:5353, :5540/udp<br>websocket :5580 local only"]
   end
 
@@ -74,7 +76,7 @@ flowchart TD
   subgraph ssdg["SSD - /var/lib"]
     pg[("postgresql")]
     rd[("redis")]
-    st["paperless db + index<br>immich thumbnails<br>hass, jellyfin, audiobookshelf, pi-hole, bookorbit, soju state"]
+    st["paperless db + index<br>immich thumbnails<br>hass, jellyfin, audiobookshelf, pi-hole, bookorbit, soju state<br>yass scans, 24 h"]
   end
 
   subgraph raid["RAID1 - /mnt/storage"]
@@ -89,8 +91,8 @@ flowchart TD
   soj --> libera["irc.libera.chat"]
   remote["tailnet peer"] --> ts --> client
   client --> ngx
-  ngx --> ncb & has & jfb & abs & plb & imb & mgb & bob & ph & soj
-  client -.-> jfb & abs & plb & imb & mgb & bob
+  ngx --> ncb & has & jfb & abs & plb & imb & mgb & bob & ph & soj & ysb
+  client -.-> jfb & abs & plb & imb & mgb & bob & ysb
   mgb --> med
   yts --> med
   bob --> pg
@@ -109,6 +111,8 @@ flowchart TD
   imb --> pg & rd & st
   imb --> pho
   plb --> doc
+  ysb --> doc & st
+  ysb --> scanner["DS-530 II<br>USB"]
   plb --> st
   tb["lab-backup.timer<br>Sun 05:30"] --> bak
 ```
@@ -149,6 +153,7 @@ built into the mirror once by hand; see **Storage** below.
 | Immich         | [https://photos.antonkesy.de](https://photos.antonkesy.de)         | [http://lab:2283](http://lab:2283)             | `/var/lib/immich/admin-pass` (user `adminEmail`)    | [Immich](https://play.google.com/store/apps/details?id=app.alextran.immich) (Android, backs up the camera roll); web on desktop                                                                                                                       |
 | MusicGrabber   | [https://music.antonkesy.de](https://music.antonkesy.de)           | [http://lab:38274](http://lab:38274)           | none                                                | web only                                                                                                                                                                                                                                              |
 | BookOrbit      | [https://books.antonkesy.de](https://books.antonkesy.de)           | [http://lab:3000](http://lab:3000)             | `/var/lib/bookorbit/admin-pass` (user `adminEmail`) | web; a Kobo syncs against `APP_URL`                                                                                                                                                                                                                   |
+| YASS           | [https://scan.antonkesy.de](https://scan.antonkesy.de)             | [http://lab:8085](http://lab:8085)             | none                                                | web, installable as an app from the browser                                                                                                                                                                                                           |
 | soju           | `ircs://irc.antonkesy.de:6697`                                     | -                                              | `/var/lib/soju/admin-pass` (user `ak`)              | [gamja](https://chat.antonkesy.de) (browser); [Goguma](https://play.google.com/store/apps/details?id=fr.emersion.goguma) (Android); [Halloy](https://halloy.chat) or any IRC client (desktop)                                                         |
 | Tailscale      | -                                                                  | -                                              | `just tailscale-up` once, logs in via browser       | [Tailscale](https://play.google.com/store/apps/details?id=com.tailscale.ipn) (Android); [desktop clients](https://tailscale.com/download)                                                                                                             |
 | Pi-hole        | [https://pihole.antonkesy.de](https://pihole.antonkesy.de)         | [http://lab:4000/admin](http://lab:4000/admin) | `/var/lib/pihole/pihole.env`                        | web only                                                                                                                                                                                                                                              |
@@ -695,6 +700,17 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   paperless copies a file's mode along with the file, so the ACL does not cover
   this. In exchange `/var/lib/paperless` is pinned to 0700, for the database and
   the secret key.
+- **YASS** (`modules/yass.nix`, from
+  [antonkesy/YASS](https://github.com/antonkesy/YASS)) runs the Epson DS-530 II
+  from the browser: *Scan*, fix up the pages, then *Save as…* downloads the
+  PDF, or *Save to server* drops it into Paperless's `consume/`, where it is
+  picked up like any other scan. *Save to server* is off in every browser until
+  it is switched on in that browser's Settings. The scanner is found through
+  sane's `epsonds` backend (`yass.device`); `scanimage -L` on lab lists it, and
+  `just check-usb` expects it on `4-3` at USB 3 speed with no kernel driver,
+  since sane talks to it over libusb. Scans in progress are kept in
+  `/var/lib/yass/sessions` for 24 hours. There is no login: anyone on the LAN
+  or the tailnet can scan, see and delete scans.
 - **Jellyfin hardware transcoding** (Intel QuickSync) still has to be
   enabled in Dashboard > Playback.
 - **Audiobookshelf** (`modules/audiobookshelf.nix`) serves audiobooks and

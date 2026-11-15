@@ -46,7 +46,7 @@ rollback:
 
 # Unit status
 status:
-    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service matter-server.service otbr-agent.service jellyfin.service audiobookshelf.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service tailscaled.service wpa_supplicant.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service bookorbit-setup.service soju.service soju-setup.service pihole-domains.service acme-renew-antonkesy.de.timer lab-backup.timer ytdl-sub-youtube.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
+    sudo systemctl status --no-pager -n 0 gen-secrets.service mnt-storage.mount storage-dirs.service home-assistant.service matter-server.service otbr-agent.service jellyfin.service audiobookshelf.service nginx.service nextcloud-setup.service nextcloud-media-watch.service paperless-storage-dirs.service paperless-web.service paperless-consumer.service immich-server.service immich-setup.service tailscaled.service wpa_supplicant.service podman-pihole.service podman-musicgrabber.service podman-bookorbit.service bookorbit-setup.service soju.service soju-setup.service yass.service pihole-domains.service acme-renew-antonkesy.de.timer lab-backup.timer ytdl-sub-youtube.timer nextcloud-preview-pregenerate.timer nextcloud-preview-generate.timer || true
 
 # Join the tailnet (opens a login URL); re-run after a restore
 tailscale-up:
@@ -102,7 +102,7 @@ check-usb:
     ports=()
     for d in "$sys"/*-*; do [[ $d == *:* ]] || ports+=("${d##*/}"); done
     fail=0 seen=" "
-    while IFS=$'\t' read -r name want port speed; do
+    while IFS=$'\t' read -r name want port speed driver; do
       seen+="$port "
       if [ "$(id "$port")" != "$want" ]; then
         fail=1
@@ -116,7 +116,8 @@ check-usb:
         printf 'FAIL %-20s on %s at %s Mb/s, not %s; a slower port or cable\n' "$name" "$port" "$got" "$speed"
         continue
       fi
-      # detected = every interface has a driver bound
+      # detected = every interface has a driver bound, unless userspace drives it
+      [ "$driver" = true ] || { printf 'ok   %-20s on %s at %s Mb/s, no kernel driver\n' "$name" "$port" "$got"; continue; }
       unbound=$(for i in "$sys/$port/$port":*; do [ -e "$i/driver" ] || printf ' %s' "${i##*/}"; done)
       if [ -n "$unbound" ]; then
         fail=1
@@ -124,7 +125,7 @@ check-usb:
         continue
       fi
       printf 'ok   %-20s on %s at %s Mb/s\n' "$name" "$port" "$got"
-    done < <(nix eval --json --file "{{ settings }}" usb | jq -r '.[] | [.name, .id, .port, (.speed | tostring)] | @tsv')
+    done < <(nix eval --json --file "{{ settings }}" usb | jq -r '.[] | [.name, .id, .port, (.speed | tostring), (if has("driver") then .driver else true end | tostring)] | @tsv')
     # hubs are just the way there
     for p in "${ports[@]}"; do
       [[ $seen == *" $p "* || $(rd "$sys/$p/bDeviceClass") == 09 ]] && continue

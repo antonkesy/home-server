@@ -65,6 +65,12 @@ let
           about = "Scanned documents, searchable";
           color = "#3f8f4f";
         }
+        {
+          key = "yass";
+          name = "YASS";
+          about = "Scan on the DS-530 II, save into Paperless";
+          color = "#b0569a";
+        }
       ];
     }
     {

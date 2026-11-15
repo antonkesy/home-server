@@ -3,15 +3,19 @@
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
+  # the scanner's web ui (modules/yass.nix)
+  inputs.yass.url = "github:antonkesy/YASS";
+  inputs.yass.inputs.nixpkgs.follows = "nixpkgs";
+
   outputs =
-    { nixpkgs, ... }:
+    { nixpkgs, yass, ... }:
     let
       system = "x86_64-linux";
       settings = import ./settings.nix;
 
       homeServer = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit settings; };
+        specialArgs = { inherit settings yass; };
         modules = [ ./configuration.nix ];
       };
     in

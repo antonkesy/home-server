@@ -29,6 +29,7 @@
     ./modules/soju.nix
     ./modules/thread.nix
     ./modules/users.nix
+    ./modules/yass.nix
     ./modules/ytdl-sub.nix
   ];
 
