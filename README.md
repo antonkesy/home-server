@@ -602,7 +602,10 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   Reservation, add lab's Wi-Fi MAC with `192.168.0.29` (`lan.address`) -
   everything on the LAN, Pi-hole's DNS included, expects lab there. The card keeps its own MAC, so the lease
   holds. `wifi.country` sets the regulatory domain, without which most of the
-  5 GHz channels stay off.
+  5 GHz channels stay off. wpa_supplicant rejoins a dropped network by
+  itself and is restarted when it dies; `wifi-watchdog` pings the router
+  every minute and restarts it after five minutes without a reply, for a
+  card that stays associated while nothing gets through.
 - **Matter** (`modules/matter.nix`). `matter-server` is the controller; Home
   Assistant reaches it at `ws://localhost:5580/ws`, which has no login and so
   is not open in the firewall. Once, in Home Assistant: *Settings > Devices &

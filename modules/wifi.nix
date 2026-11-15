@@ -1,7 +1,7 @@
 { pkgs, settings, ... }:
 
 let
-  inherit (settings) wifi;
+  inherit (settings) lan wifi;
   # psk=<passphrase>, from `just wifi-psk`; never in the store
   secrets = "/var/lib/wifi/secrets";
 in
@@ -29,9 +29,44 @@ in
   # empty one until `just wifi-psk`: the network is skipped, the daemon stays
   # up. readable by its group, since the daemon runs as wpa_supplicant. here
   # rather than tmpfiles, which a first switch does not order before this
-  systemd.services.wpa_supplicant.serviceConfig.ExecStartPre = [
-    "+${pkgs.writeShellScript "wifi-secrets" ''
-      [ -e ${secrets} ] || ${pkgs.coreutils}/bin/install -D -m 0640 -g wpa_supplicant /dev/null ${secrets}
-    ''}"
-  ];
+  systemd.services.wpa_supplicant.serviceConfig = {
+    ExecStartPre = [
+      "+${pkgs.writeShellScript "wifi-secrets" ''
+        [ -e ${secrets} ] || ${pkgs.coreutils}/bin/install -D -m 0640 -g wpa_supplicant /dev/null ${secrets}
+      ''}"
+    ];
+    # it rejoins a dropped network by itself, but the unit does not come back
+    # when the daemon dies, and without a cable lab is then off the LAN and
+    # the tailnet until someone is at the console
+    Restart = "always";
+    RestartSec = 5;
+  };
+
+  # a wedged card or driver can stay associated while nothing gets through,
+  # which wpa_supplicant never notices. five minutes without the router
+  # restarts it; with a cable plugged in the router answers over that
+  systemd.services.wifi-watchdog = {
+    wantedBy = [ "multi-user.target" ];
+    after = [ "wpa_supplicant.service" ];
+    path = with pkgs; [
+      iputils
+      systemd
+    ];
+    serviceConfig.Restart = "always";
+    script = ''
+      misses=0
+      while sleep 60; do
+        if ping -q -c 3 -W 2 ${lan.router} >/dev/null; then
+          misses=0
+          continue
+        fi
+        misses=$((misses + 1))
+        if [ "$misses" -ge 5 ]; then
+          echo "no reply from ${lan.router} for $misses minutes, restarting wpa_supplicant"
+          systemctl restart wpa_supplicant.service
+          misses=0
+        fi
+      done
+    '';
+  };
 }
