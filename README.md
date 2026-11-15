@@ -619,8 +619,12 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   path, since the Zigbee dongle has the same USB id). It forms the Thread
   network on `wpan0` and advertises the routes to it on `wlo1`
   (`thread.backbone`), so matter-server reaches a Thread device like a Wi-Fi
-  one. The dongle has to run OpenThread RCP firmware, at the baud rate and
-  flow control in `thread.baudRate` and `thread.flowControl`. Its REST API
+  one. With no IPv6 from the router, the border router advertises a prefix
+  of its own for the LAN; `thread-onlink-route` gives lab the route back to
+  it, without which phones cannot reach the mesh and Android hangs at
+  *checking connectivity to Thread network*. The dongle has to run
+  OpenThread RCP firmware, at the baud rate and flow control in
+  `thread.baudRate` and `thread.flowControl`. Its REST API
   at `http://127.0.0.1:8081` has no login and stays local. The network and
   its key live in `/var/lib/thread`, which is in the backup. Flashing the
   dongle and the setup in Home Assistant are **Day to day**, *Thread

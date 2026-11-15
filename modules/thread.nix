@@ -1,7 +1,13 @@
-{ settings, ... }:
+{
+  config,
+  pkgs,
+  settings,
+  ...
+}:
 
 let
   inherit (settings) thread;
+  otbr = config.services.openthread-border-router.package;
 in
 {
   # the thread border router: it forms the thread network on the sonoff
@@ -27,4 +33,27 @@ in
   # mDNS, for the border router's own advertisement and for the services of
   # thread devices; also opened by matter.nix
   networking.firewall.allowedUDPPorts = [ 5353 ];
+
+  # with no IPv6 from the router, the border router advertises an on-link
+  # prefix of its own, and phones take their addresses from it. the kernel
+  # ignores lab's own advertisements, so lab has no route back: the
+  # reverse-path filter drops their packets to the mesh, and android hangs at
+  # "checking connectivity to thread network". re-added every minute, since a
+  # link flap takes it away; with IPv6 from the router it is merely unused
+  systemd.services.thread-onlink-route = {
+    wantedBy = [ "multi-user.target" ];
+    after = [ "otbr-agent.service" ];
+    path = [
+      otbr
+      pkgs.iproute2
+    ];
+    serviceConfig.Restart = "always";
+    script = ''
+      while true; do
+        prefix=$(ot-ctl br onlinkprefix 2>/dev/null | tr -d '\r' | sed -n 's/^Local: //p')
+        [ -z "$prefix" ] || ip -6 route replace "$prefix" dev ${thread.backbone} || true
+        sleep 60
+      done
+    '';
+  };
 }
