@@ -63,11 +63,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793050874,
-        "narHash": "sha256-VUkhYQFeeJ1RRG26igkpC7HYIOWbrC/Z3IMtESKqRiU=",
+        "lastModified": 1794748879,
+        "narHash": "sha256-dEh7p8j3cb1ouzkhxQEwzdlxJaWJukUYSOpxqKHaq0M=",
         "owner": "antonkesy",
         "repo": "YASS",
-        "rev": "eb2ef11cc28076ffee75e31d93b19ca1eedec4ed",
+        "rev": "c2c27deee8928e0f97fb5cf636d6cafbf388267f",
         "type": "github"
       },
       "original": {
