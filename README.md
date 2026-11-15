@@ -490,8 +490,8 @@ Nextcloud database, restarts `sshd` with the old host keys and re-runs
   :8080 with `fastcgi_param HTTPS off`; on one shared vhost Nextcloud would
   mark its cookies Secure and the browser would drop them over HTTP.
 - **LAN names.** Pi-hole serves `lab` and `lab.home.arpa` from the server's
-  `/etc/hosts`; everything else under `home.arpa`, and reverse lookups, is
-  forwarded to the router.
+  `/etc/hosts`. Nothing is forwarded to the router: the TP-Link answers no
+  DNS, so a lookup sent there only times out.
 - **Nextcloud** is trimmed to file sharing: `nextcloud-disable-apps` turns the
   stock dashboard, activity, photos and similar apps off on every boot, cron
   runs every 15 minutes. `previewgenerator` is the exception - it is an

@@ -8,7 +8,7 @@
 
 let
   stateDir = "/var/lib/pihole";
-  inherit (settings) lan ports upstreamDns;
+  inherit (settings) ports upstreamDns;
   uid = toString config.users.users.${settings.user}.uid;
   domains = pkgs.writeText "pihole-domains.json" (builtins.toJSON settings.pihole.domains);
 in
@@ -30,8 +30,10 @@ in
     environment = {
       TZ = config.time.timeZone;
       FTLCONF_dns_upstreams = lib.concatStringsSep ";" upstreamDns;
-      # LAN names and reverse lookups not in /etc/hosts go to the router
-      FTLCONF_dns_revServers = "true,${lan.subnet},${lan.router},${lan.domain}";
+      # none: the router answers no DNS, so forwarded lookups only time out;
+      # pi-hole answers private reverse lookups itself. empty rather than
+      # unset, since FTL keeps the last env value in pihole.toml
+      FTLCONF_dns_revServers = "";
       FTLCONF_dns_listeningMode = "all";
       FTLCONF_misc_etc_dnsmasq_d = "true";
       PIHOLE_UID = uid;
