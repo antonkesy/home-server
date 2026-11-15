@@ -1,4 +1,5 @@
 {
+  config,
   lib,
   settings,
   yass,
@@ -37,6 +38,9 @@ in
   # ReadWritePaths on a missing consume/ fails the unit before it starts;
   # paperless-storage-dirs waits for the array and creates it
   systemd.services.yass = {
+    # upstream's module points sane at /etc/sane.d, which nixos does not
+    # have; without its dll.conf sane loads no backend and finds no scanner
+    environment.SANE_CONFIG_DIR = lib.mkForce config.environment.sessionVariables.SANE_CONFIG_DIR;
     requires = [ "paperless-storage-dirs.service" ];
     after = [ "paperless-storage-dirs.service" ];
     unitConfig.RequiresMountsFor = [ consume ];
