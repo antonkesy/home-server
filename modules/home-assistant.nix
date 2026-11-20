@@ -49,10 +49,11 @@ in
   services.home-assistant = {
     enable = true;
     # upstream's defaults, plus matter (modules/matter.nix), the thread border
-    # router and thread's own panel (modules/thread.nix), upnp (the router,
-    # found by ssdp; without it the discovery fails on a missing module), and
-    # zha. an integration added in the ui only loads when its component is
-    # built in.
+    # router and thread's own panel (modules/thread.nix), roborock (the
+    # vacuum, through the roborock cloud account), upnp (the router, found by
+    # ssdp; without it the discovery fails on a missing module), and zha. an
+    # integration added in the ui only loads when its component is built in;
+    # without it the config flow fails with "invalid handler specified".
     # zha also gets the unit access to the serial ports (the sonoff dongle in
     # settings.usb); its network lives in zigbee.db, which lab-backup snapshots
     extraComponents = [
@@ -61,6 +62,7 @@ in
       "esphome"
       "matter"
       "otbr"
+      "roborock"
       "thread"
       "upnp"
       "zha"
