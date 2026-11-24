@@ -90,6 +90,7 @@ in
       "Documents"
       "Archive"
       "Backups"
+      "Games"
     ];
     # first saturday; a read-check of 3.6 T runs for hours at low priority
     scrubOnCalendar = "Sat *-*-1..7 03:00";
